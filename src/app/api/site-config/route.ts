@@ -10,5 +10,7 @@ export async function GET() {
   for (const c of configs) {
     settings[c.key] = c.value;
   }
-  return NextResponse.json(settings);
+  return NextResponse.json(settings, {
+    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+  });
 }

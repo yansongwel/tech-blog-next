@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Upload, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowLeft, Save, Upload, Loader2, FileUp } from "lucide-react";
 import Link from "next/link";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -287,6 +287,43 @@ export default function NewPostPage() {
                 >
                   Img
                 </ToolbarButton>
+                <span className="w-px h-5 bg-border mx-1" />
+                <label className="px-2 py-1 text-xs text-muted hover:text-foreground hover:bg-white/5 rounded transition-colors cursor-pointer flex items-center gap-1">
+                  <FileUp className="w-3 h-3" /> .md
+                  <input
+                    type="file"
+                    accept=".md,.markdown,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const md = reader.result as string;
+                        // Extract title from first # heading
+                        const titleMatch = md.match(/^#\s+(.+)$/m);
+                        if (titleMatch && !title) setTitle(titleMatch[1]);
+                        // Convert basic markdown to HTML for Tiptap
+                        const html = md
+                          .replace(/^#{3}\s+(.+)$/gm, "<h3>$1</h3>")
+                          .replace(/^#{2}\s+(.+)$/gm, "<h2>$1</h2>")
+                          .replace(/^#{1}\s+(.+)$/gm, "")
+                          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+                          .replace(/\*(.+?)\*/g, "<em>$1</em>")
+                          .replace(/`{3}(\w*)\n([\s\S]*?)`{3}/g, "<pre><code>$2</code></pre>")
+                          .replace(/`([^`]+)`/g, "<code>$1</code>")
+                          .replace(/^\- (.+)$/gm, "<li>$1</li>")
+                          .replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>")
+                          .replace(/^> (.+)$/gm, "<blockquote><p>$1</p></blockquote>")
+                          .replace(/^(?!<[huplbo])([\w\u4e00-\u9fa5].+)$/gm, "<p>$1</p>")
+                          .replace(/\n{2,}/g, "");
+                        editor?.commands.setContent(html);
+                      };
+                      reader.readAsText(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
               </div>
             )}
             {editor ? (

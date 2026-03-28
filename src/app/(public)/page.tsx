@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import HeroCarousel from "@/components/blog/HeroCarousel";
 import PostCard from "@/components/blog/PostCard";
 import { useSiteConfig } from "@/lib/useSiteConfig";
+import { PostGridSkeleton } from "@/components/blog/Skeleton";
 import {
   Database,
   Server,
@@ -145,9 +146,7 @@ export default function HomePage() {
           </a>
         </div>
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <PostGridSkeleton count={6} />
         ) : posts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((post) => (

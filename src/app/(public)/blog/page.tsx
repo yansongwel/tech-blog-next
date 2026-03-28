@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import PostCard from "@/components/blog/PostCard";
+import { PostGridSkeleton } from "@/components/blog/Skeleton";
 import { Search, Loader2 } from "lucide-react";
 
 const allCategories = [
@@ -129,9 +130,7 @@ function BlogListContent() {
 
       {/* Post grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <PostGridSkeleton count={12} />
       ) : posts.length > 0 ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

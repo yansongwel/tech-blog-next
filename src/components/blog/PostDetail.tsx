@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import createDOMPurify from "dompurify";
 import ReadingProgress from "@/components/blog/ReadingProgress";
 import TableOfContents from "@/components/blog/TableOfContents";
+import { PostDetailSkeleton } from "@/components/blog/Skeleton";
 import {
   Heart,
   Bookmark,
@@ -169,11 +170,7 @@ export default function PostDetail({ slug }: { slug: string }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PostDetailSkeleton />;
   }
 
   if (!post) {
