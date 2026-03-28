@@ -66,18 +66,17 @@ export default function EditPostPage() {
   // Fetch post data and categories
   useEffect(() => {
     Promise.all([
-      fetch(`/api/admin/posts`).then((r) => r.json()),
+      fetch(`/api/admin/posts/${postId}`).then((r) => r.json()),
       fetch("/api/categories").then((r) => r.json()),
     ])
-      .then(([postsData, catsData]) => {
-        const post = (postsData.posts as Post[])?.find((p) => p.id === postId);
-        if (post) {
+      .then(([post, catsData]) => {
+        if (post && !post.error) {
           setTitle(post.title);
           setExcerpt(post.excerpt || "");
           setCategoryId(post.categoryId);
           setIsLocked(post.isLocked);
           setCurrentStatus(post.status);
-          setTags(post.tags?.map((t) => t.tag.name).join(", ") || "");
+          setTags(post.tags?.map((t: { tag: { name: string } }) => t.tag.name).join(", ") || "");
           editor?.commands.setContent(post.content);
         }
         if (Array.isArray(catsData)) setCategories(catsData);

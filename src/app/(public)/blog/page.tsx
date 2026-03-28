@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import PostCard from "@/components/blog/PostCard";
 import { Search, Loader2 } from "lucide-react";
 
@@ -37,9 +38,19 @@ interface Pagination {
 }
 
 export default function BlogListPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+      <BlogListContent />
+    </Suspense>
+  );
+}
+
+function BlogListContent() {
+  const searchParams = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
   const [activeCategory, setActiveCategory] = useState("全部");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState(urlSearch);
+  const [searchInput, setSearchInput] = useState(urlSearch);
   const [posts, setPosts] = useState<Post[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pages: 1, total: 0 });
   const [loading, setLoading] = useState(true);
@@ -59,6 +70,7 @@ export default function BlogListPage() {
       const data = await res.json();
       setPosts(data.posts || []);
       setPagination(data.pagination || { page: 1, pages: 1, total: 0 });
+      if (page > 1) window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
       setPosts([]);
     } finally {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Menu, X, Search, ChevronDown } from "lucide-react";
 import { useSiteConfig } from "@/lib/useSiteConfig";
 
@@ -13,7 +14,9 @@ interface Category {
 
 export default function Navbar() {
   const config = useSiteConfig();
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -119,14 +122,26 @@ export default function Navbar() {
 
       {searchOpen && (
         <div className="absolute top-full left-0 right-0 glass p-4 animate-fade-in">
-          <div className="max-w-2xl mx-auto">
+          <form
+            className="max-w-2xl mx-auto"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (searchQuery.trim()) {
+                router.push(`/blog?search=${encodeURIComponent(searchQuery.trim())}`);
+                setSearchOpen(false);
+                setSearchQuery("");
+              }
+            }}
+          >
             <input
               type="text"
-              placeholder="搜索文章..."
+              placeholder="搜索文章... 按回车搜索"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
               autoFocus
             />
-          </div>
+          </form>
         </div>
       )}
 

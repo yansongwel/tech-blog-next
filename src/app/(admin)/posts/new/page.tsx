@@ -29,6 +29,7 @@ export default function NewPostPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [autoSaved, setAutoSaved] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -60,6 +61,39 @@ export default function NewPostPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Restore draft from localStorage
+  useEffect(() => {
+    const draft = localStorage.getItem("post_draft");
+    if (draft) {
+      try {
+        const d = JSON.parse(draft);
+        if (d.title) setTitle(d.title);
+        if (d.excerpt) setExcerpt(d.excerpt);
+        if (d.categoryId) setCategoryId(d.categoryId);
+        if (d.tags) setTags(d.tags);
+        if (d.content && editor) editor.commands.setContent(d.content);
+      } catch {}
+    }
+  }, [editor]);
+
+  // Auto-save draft every 30 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!title && !editor?.getHTML()) return;
+      const draft = {
+        title,
+        excerpt,
+        categoryId,
+        tags,
+        content: editor?.getHTML() || "",
+      };
+      localStorage.setItem("post_draft", JSON.stringify(draft));
+      setAutoSaved(true);
+      setTimeout(() => setAutoSaved(false), 2000);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [title, excerpt, categoryId, tags, editor]);
 
   const handleSave = async (status: "DRAFT" | "PUBLISHED") => {
     if (!title.trim()) {
@@ -97,6 +131,7 @@ export default function NewPostPage() {
       });
 
       if (res.ok) {
+        localStorage.removeItem("post_draft");
         router.push("/posts");
       } else {
         const data = await res.json();
@@ -131,6 +166,7 @@ export default function NewPostPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-2xl font-bold text-foreground">新建文章</h1>
+          {autoSaved && <span className="text-xs text-green-400 ml-2">已自动保存</span>}
         </div>
         <div className="flex items-center gap-2">
           <button

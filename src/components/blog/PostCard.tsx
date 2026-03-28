@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Eye, Heart, MessageCircle, Clock } from "lucide-react";
 
 interface PostCardProps {
@@ -23,19 +24,18 @@ export default function PostCard({ post }: PostCardProps) {
       <article className="glass rounded-2xl overflow-hidden card-hover">
         {/* Cover image */}
         <div className="relative h-48 overflow-hidden">
-          <div
-            className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 group-hover:scale-110 transition-transform duration-500"
-            style={
-              post.coverImage
-                ? {
-                    backgroundImage: `url(${post.coverImage})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                  }
-                : {}
-            }
-          />
-          <div className="absolute top-3 left-3">
+          {post.coverImage ? (
+            <Image
+              src={post.coverImage}
+              alt={post.title}
+              fill
+              className="object-cover group-hover:scale-110 transition-transform duration-500"
+              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 group-hover:scale-110 transition-transform duration-500" />
+          )}
+          <div className="absolute top-3 left-3 z-10">
             <span className="px-2.5 py-1 text-xs font-medium bg-primary/80 text-white rounded-lg">
               {post.category.name}
             </span>
