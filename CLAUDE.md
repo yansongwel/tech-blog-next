@@ -111,7 +111,16 @@ docker compose up -d --build                       # 生产部署
 | POST | /api/subscribe | 邮箱订阅 |
 | GET | /api/admin/stats | 仪表盘统计数据（需认证） |
 | GET | /api/admin/posts | 管理后台文章列表（需认证） |
+| PUT | /api/admin/posts | 更新文章（需认证） |
 | DELETE | /api/admin/posts?id=xxx | 删除文章（需认证） |
+| GET | /api/admin/comments | 评论列表（需认证，支持筛选） |
+| PUT | /api/admin/comments | 审核评论（需认证） |
+| DELETE | /api/admin/comments?id=xxx | 删除评论（需认证） |
+| GET | /api/admin/media | 媒体文件列表（需认证） |
+| POST | /api/admin/media | 上传图片到 MinIO（需认证） |
+| DELETE | /api/admin/media?id=xxx | 删除媒体文件（需认证） |
+| GET | /api/admin/settings | 获取站点配置（需认证） |
+| PUT | /api/admin/settings | 更新站点配置（需认证） |
 | GET | /api/wechat | 微信服务器验证 |
 | POST | /api/wechat | 处理微信消息 |
 | PUT | /api/wechat | 验证解锁码 |
