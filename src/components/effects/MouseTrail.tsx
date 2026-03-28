@@ -119,7 +119,7 @@ export default function MouseTrail() {
     <>
       <canvas
         ref={canvasRef}
-        className="fixed inset-0 pointer-events-none z-[9998]"
+        className="mouse-trail-canvas fixed inset-0 pointer-events-none z-[9998]"
       />
       {/* Custom cursor - outer ring */}
       <div
