@@ -1,28 +1,31 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSiteConfig } from "@/lib/useSiteConfig";
 
-// Animated pixel-art character using CSS sprite animation
-// Can be replaced with Live2D model later
 export default function DancingCharacter() {
+  const config = useSiteConfig();
   const [visible, setVisible] = useState(true);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [message, setMessage] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [pulse, setPulse] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const messages = [
-    "Welcome! 欢迎来到TechBlog~",
-    "今天学到新知识了吗？",
-    "点个赞再走呗~",
-    "记得订阅哦！",
-    "Happy Coding! 🎉",
-    "有问题欢迎留言~",
+    `Welcome to ${config.site_name || "TechBlog"}!`,
+    "Explore the tech universe",
+    "Knowledge is power",
+    "Happy Coding!",
+    "Stay curious",
+    "Level up your skills",
   ];
 
   const handleClick = () => {
+    setPulse(true);
     setMessage(messages[Math.floor(Math.random() * messages.length)]);
     setTimeout(() => setMessage(""), 3000);
+    setTimeout(() => setPulse(false), 600);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -65,140 +68,122 @@ export default function DancingCharacter() {
     >
       {/* Speech bubble */}
       {message && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 glass rounded-xl px-3 py-2 text-xs text-foreground whitespace-nowrap animate-fade-in">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 glass rounded-xl px-4 py-2 text-xs text-accent-light whitespace-nowrap animate-fade-in font-mono">
           {message}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-border" />
+          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-primary/30" />
         </div>
       )}
 
-      {/* Character - CSS animated dancing figure */}
+      {/* Holographic AI Core */}
       <div
         className="relative cursor-grab active:cursor-grabbing select-none"
         onClick={handleClick}
         onMouseDown={handleMouseDown}
       >
-        {/* SVG Dancing Character */}
         <svg
-          width="60"
-          height="80"
-          viewBox="0 0 60 80"
-          className="drop-shadow-lg"
+          width="64"
+          height="64"
+          viewBox="0 0 64 64"
+          className="drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]"
         >
-          {/* Head */}
-          <circle cx="30" cy="16" r="12" fill="#FFD93D" stroke="#333" strokeWidth="1.5">
-            <animate
-              attributeName="cy"
-              values="16;14;16"
-              dur="0.6s"
-              repeatCount="indefinite"
-            />
-          </circle>
-          {/* Eyes */}
-          <circle cx="25" cy="14" r="2" fill="#333">
-            <animate
-              attributeName="cy"
-              values="14;12;14"
-              dur="0.6s"
-              repeatCount="indefinite"
-            />
-          </circle>
-          <circle cx="35" cy="14" r="2" fill="#333">
-            <animate
-              attributeName="cy"
-              values="14;12;14"
-              dur="0.6s"
-              repeatCount="indefinite"
-            />
-          </circle>
-          {/* Smile */}
-          <path
-            d="M24 19 Q30 24 36 19"
+          {/* Outer rotating ring */}
+          <circle
+            cx="32" cy="32" r="28"
             fill="none"
-            stroke="#333"
-            strokeWidth="1.5"
-            strokeLinecap="round"
+            stroke="url(#ringGrad)"
+            strokeWidth="1"
+            strokeDasharray="4 4"
+            opacity="0.6"
           >
-            <animate
-              attributeName="d"
-              values="M24 19 Q30 24 36 19;M24 17 Q30 22 36 17;M24 19 Q30 24 36 19"
-              dur="0.6s"
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 32 32"
+              to="360 32 32"
+              dur="8s"
               repeatCount="indefinite"
             />
-          </path>
-          {/* Body */}
-          <rect x="22" y="28" width="16" height="22" rx="4" fill="#6366f1">
-            <animate
-              attributeName="y"
-              values="28;26;28"
-              dur="0.6s"
+          </circle>
+
+          {/* Middle ring */}
+          <circle
+            cx="32" cy="32" r="22"
+            fill="none"
+            stroke="url(#ringGrad2)"
+            strokeWidth="0.8"
+            strokeDasharray="8 3"
+            opacity="0.4"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="360 32 32"
+              to="0 32 32"
+              dur="6s"
               repeatCount="indefinite"
             />
-          </rect>
-          {/* Left arm */}
-          <line x1="22" y1="32" x2="8" y2="42" stroke="#FFD93D" strokeWidth="4" strokeLinecap="round">
+          </circle>
+
+          {/* Core glow */}
+          <circle cx="32" cy="32" r="14" fill="url(#coreGrad)" opacity="0.9">
             <animate
-              attributeName="x2"
-              values="8;4;8"
-              dur="0.3s"
+              attributeName="r"
+              values={pulse ? "14;18;14" : "14;15;14"}
+              dur={pulse ? "0.3s" : "2s"}
               repeatCount="indefinite"
             />
+          </circle>
+
+          {/* Inner bright core */}
+          <circle cx="32" cy="32" r="6" fill="#fff" opacity="0.3">
             <animate
-              attributeName="y2"
-              values="42;35;42"
-              dur="0.3s"
+              attributeName="opacity"
+              values="0.3;0.6;0.3"
+              dur="1.5s"
               repeatCount="indefinite"
             />
-          </line>
-          {/* Right arm */}
-          <line x1="38" y1="32" x2="52" y2="42" stroke="#FFD93D" strokeWidth="4" strokeLinecap="round">
-            <animate
-              attributeName="x2"
-              values="52;56;52"
-              dur="0.3s"
-              repeatCount="indefinite"
-            />
-            <animate
-              attributeName="y2"
-              values="42;35;42"
-              dur="0.3s"
-              repeatCount="indefinite"
-            />
-          </line>
-          {/* Left leg */}
-          <line x1="26" y1="50" x2="18" y2="72" stroke="#333" strokeWidth="4" strokeLinecap="round">
-            <animate
-              attributeName="x2"
-              values="18;14;18"
-              dur="0.6s"
-              repeatCount="indefinite"
-            />
-          </line>
-          {/* Right leg */}
-          <line x1="34" y1="50" x2="42" y2="72" stroke="#333" strokeWidth="4" strokeLinecap="round">
-            <animate
-              attributeName="x2"
-              values="42;46;42"
-              dur="0.6s"
-              repeatCount="indefinite"
-            />
-          </line>
-          {/* Shoes */}
-          <ellipse cx="18" cy="74" rx="6" ry="3" fill="#06b6d4">
-            <animate
-              attributeName="cx"
-              values="18;14;18"
-              dur="0.6s"
-              repeatCount="indefinite"
-            />
-          </ellipse>
-          <ellipse cx="42" cy="74" rx="6" ry="3" fill="#06b6d4">
-            <animate
-              attributeName="cx"
-              values="42;46;42"
-              dur="0.6s"
-              repeatCount="indefinite"
-            />
-          </ellipse>
+          </circle>
+
+          {/* Orbiting dots */}
+          {[0, 120, 240].map((angle, i) => (
+            <circle key={i} cx="32" cy="8" r="2" fill={i === 0 ? "#6366f1" : i === 1 ? "#06b6d4" : "#8b5cf6"}>
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from={`${angle} 32 32`}
+                to={`${angle + 360} 32 32`}
+                dur={`${3 + i}s`}
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="opacity"
+                values="1;0.4;1"
+                dur={`${1.5 + i * 0.5}s`}
+                repeatCount="indefinite"
+              />
+            </circle>
+          ))}
+
+          {/* Hex pattern in core */}
+          <text x="32" y="36" textAnchor="middle" fill="#fff" fontSize="12" fontFamily="monospace" opacity="0.8">
+            AI
+          </text>
+
+          <defs>
+            <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#818cf8" />
+              <stop offset="60%" stopColor="#6366f1" />
+              <stop offset="100%" stopColor="#4338ca" stopOpacity="0.6" />
+            </radialGradient>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#6366f1" />
+              <stop offset="100%" stopColor="#06b6d4" />
+            </linearGradient>
+            <linearGradient id="ringGrad2" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#06b6d4" />
+              <stop offset="100%" stopColor="#8b5cf6" />
+            </linearGradient>
+          </defs>
         </svg>
 
         {/* Close button */}

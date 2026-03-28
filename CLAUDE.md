@@ -57,6 +57,14 @@ src/
 - 卡片悬浮效果使用 `.card-hover` 类
 - 渐变文字使用 `.gradient-text` 类
 
+### 配置规范
+- 部署相关配置（数据库、Redis、S3、认证）通过 `.env` 环境变量
+- 站点内容（名称、描述、博主信息、社交链接）通过后台 **设置页** 的 SiteConfig 管理
+- 导航栏分类和 Footer 分类从 `/api/categories` 动态获取，不硬编码
+- 前台组件通过 `useSiteConfig()` hook 读取站点配置
+- 公开读取接口: `GET /api/site-config`（无需认证）
+- next.config.ts 中的 `allowedDevOrigins` 从 `ALLOWED_DEV_ORIGINS` 环境变量读取
+
 ### Prisma 7 注意事项
 - 数据库连接通过 `prisma.config.ts` 的 `datasource.url` 配置
 - schema 中 `datasource db` 只声明 provider，不能有 `url`

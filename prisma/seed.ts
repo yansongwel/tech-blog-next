@@ -143,8 +143,18 @@ async function main() {
   // Create site config
   const configs = [
     { key: "site_name", value: "TechBlog" },
+    { key: "site_logo", value: "T" },
     { key: "site_description", value: "探索技术的无限可能" },
+    { key: "site_subtitle", value: "深耕 DBA、SRE、AI、大数据等领域，分享一线实战经验与技术思考" },
+    { key: "author_name", value: "TechBlog 博主" },
+    { key: "author_bio", value: "资深 SRE / DBA 工程师，热衷于云原生、数据库优化、AI 应用和大数据技术。多年一线运维和开发经验，曾参与多个大型分布式系统的架构设计与运维保障。这里记录我的技术沉淀和成长思考。" },
+    { key: "author_avatar", value: "Dev" },
+    { key: "author_skills", value: "Kubernetes,Docker,MySQL,PostgreSQL,Python,Go,Prometheus,Terraform,LLM,Flink" },
+    { key: "github_url", value: "" },
+    { key: "email", value: "" },
+    { key: "icp_number", value: "" },
     { key: "wechat_qr_url", value: "/images/wechat-qr.png" },
+    { key: "music_url", value: "" },
   ];
 
   for (const config of configs) {

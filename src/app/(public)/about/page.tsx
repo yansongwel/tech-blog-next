@@ -9,8 +9,9 @@ import {
   BookOpen,
   Code2,
 } from "lucide-react";
+import { useSiteConfig } from "@/lib/useSiteConfig";
 
-const skills = [
+const defaultSkills = [
   { category: "DBA", items: ["MySQL", "PostgreSQL", "Redis", "MongoDB", "ClickHouse"] },
   { category: "SRE/DevOps", items: ["Kubernetes", "Docker", "Terraform", "Ansible", "Prometheus", "Grafana"] },
   { category: "AI", items: ["LLM", "RAG", "LangChain", "PyTorch", "向量数据库"] },
@@ -27,21 +28,28 @@ const timeline = [
 ];
 
 export default function AboutPage() {
+  const config = useSiteConfig();
+
+  const authorName = config.author_name || "TechBlog 博主";
+  const authorBio = config.author_bio || "";
+  const authorAvatar = config.author_avatar || "Dev";
+  const githubUrl = config.github_url;
+  const emailAddr = config.email;
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Profile card */}
       <section className="glass rounded-2xl p-8 md:p-12 mb-8">
         <div className="flex flex-col md:flex-row items-center gap-8">
           <div className="w-36 h-36 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-5xl font-bold text-white shrink-0 animate-pulse-glow">
-            Dev
+            {authorAvatar}
           </div>
           <div className="text-center md:text-left">
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              TechBlog 博主
+              {authorName}
             </h1>
             <p className="text-muted mb-4 leading-relaxed">
-              资深 SRE / DBA 工程师，热衷于云原生、数据库优化、AI 应用和大数据技术。
-              多年一线运维和开发经验，坚信技术分享是最好的学习方式。
+              {authorBio}
             </p>
             <div className="flex flex-wrap gap-4 justify-center md:justify-start text-sm text-muted">
               <span className="flex items-center gap-1">
@@ -55,18 +63,16 @@ export default function AboutPage() {
               </span>
             </div>
             <div className="flex gap-3 mt-4 justify-center md:justify-start">
-              <a
-                href="#"
-                className="p-2 glass rounded-lg text-muted hover:text-foreground transition-colors"
-              >
-                <GitBranch className="w-5 h-5" />
-              </a>
-              <a
-                href="#"
-                className="p-2 glass rounded-lg text-muted hover:text-foreground transition-colors"
-              >
-                <Mail className="w-5 h-5" />
-              </a>
+              {githubUrl && (
+                <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="p-2 glass rounded-lg text-muted hover:text-foreground transition-colors">
+                  <GitBranch className="w-5 h-5" />
+                </a>
+              )}
+              {emailAddr && (
+                <a href={`mailto:${emailAddr}`} className="p-2 glass rounded-lg text-muted hover:text-foreground transition-colors">
+                  <Mail className="w-5 h-5" />
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -78,7 +84,7 @@ export default function AboutPage() {
           <Code2 className="w-6 h-6" /> 技术栈
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {skills.map((group) => (
+          {defaultSkills.map((group) => (
             <div key={group.category} className="glass rounded-xl p-5">
               <h3 className="font-semibold text-foreground mb-3">
                 {group.category}
@@ -106,14 +112,12 @@ export default function AboutPage() {
         <div className="space-y-0">
           {timeline.map((item, i) => (
             <div key={i} className="flex gap-4">
-              {/* Timeline line */}
               <div className="flex flex-col items-center">
                 <div className="w-3 h-3 rounded-full bg-primary shrink-0 mt-1.5" />
                 {i < timeline.length - 1 && (
                   <div className="w-0.5 flex-1 bg-border" />
                 )}
               </div>
-              {/* Content */}
               <div className="pb-8">
                 <span className="text-xs font-mono text-accent">{item.year}</span>
                 <h3 className="font-semibold text-foreground">{item.title}</h3>

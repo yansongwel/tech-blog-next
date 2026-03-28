@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import HeroCarousel from "@/components/blog/HeroCarousel";
 import PostCard from "@/components/blog/PostCard";
+import { useSiteConfig } from "@/lib/useSiteConfig";
 import {
   Database,
   Server,
@@ -43,10 +44,12 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [subscribeEmail, setSubscribeEmail] = useState("");
   const [subscribeMsg, setSubscribeMsg] = useState("");
-  const fullText = "探索技术的无限可能";
+  const config = useSiteConfig();
+  const fullText = config.site_description || "探索技术的无限可能";
 
   useEffect(() => {
     let i = 0;
+    setTypedText("");
     const timer = setInterval(() => {
       if (i <= fullText.length) {
         setTypedText(fullText.slice(0, i));
@@ -56,7 +59,7 @@ export default function HomePage() {
       }
     }, 150);
     return () => clearInterval(timer);
-  }, []);
+  }, [fullText]);
 
   useEffect(() => {
     fetch("/api/posts?limit=6")
@@ -101,7 +104,7 @@ export default function HomePage() {
           <span className="animate-pulse text-accent">|</span>
         </h2>
         <p className="text-muted text-lg max-w-2xl mx-auto">
-          深耕 DBA、SRE、AI、大数据等领域，分享一线实战经验与技术思考
+          {config.site_subtitle || ""}
         </p>
       </section>
 
@@ -163,30 +166,17 @@ export default function HomePage() {
       <section className="py-12">
         <div className="glass rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
           <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl font-bold text-white shrink-0 animate-pulse-glow">
-            Dev
+            {config.author_avatar || "Dev"}
           </div>
           <div>
             <h3 className="text-2xl font-bold text-foreground mb-3">
-              关于我
+              {config.author_name || "关于我"}
             </h3>
             <p className="text-muted leading-relaxed mb-4">
-              资深 SRE / DBA 工程师，热衷于云原生、数据库优化、AI 应用和大数据技术。
-              多年一线运维和开发经验，曾参与多个大型分布式系统的架构设计与运维保障。
-              这里记录我的技术沉淀和成长思考。
+              {config.author_bio || ""}
             </p>
             <div className="flex flex-wrap gap-2">
-              {[
-                "Kubernetes",
-                "Docker",
-                "MySQL",
-                "PostgreSQL",
-                "Python",
-                "Go",
-                "Prometheus",
-                "Terraform",
-                "LLM",
-                "Flink",
-              ].map((skill) => (
+              {(config.author_skills || "").split(",").filter(Boolean).map((skill) => (
                 <span
                   key={skill}
                   className="px-3 py-1 text-xs font-medium bg-primary/10 text-primary-light border border-primary/20 rounded-full"

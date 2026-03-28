@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LogIn } from "lucide-react";
+import { useSiteConfig } from "@/lib/useSiteConfig";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -35,14 +36,18 @@ export default function AdminLoginPage() {
     }
   };
 
+  const config = useSiteConfig();
+  const siteName = config.site_name || "TechBlog";
+  const siteLogo = config.site_logo || siteName[0];
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-14 h-14 mx-auto rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-2xl mb-4">
-            T
+            {siteLogo}
           </div>
-          <h1 className="text-2xl font-bold gradient-text">TechBlog Admin</h1>
+          <h1 className="text-2xl font-bold gradient-text">{siteName} Admin</h1>
           <p className="text-muted text-sm mt-1">登录后台管理系统</p>
         </div>
 

@@ -2,32 +2,46 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Music, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { useSiteConfig } from "@/lib/useSiteConfig";
 
 export default function MusicPlayer() {
+  const config = useSiteConfig();
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [hasMusic, setHasMusic] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Create audio element - replace with your actual music file
-    audioRef.current = new Audio("/music/bg-music.mp3");
-    audioRef.current.loop = true;
-    audioRef.current.volume = 0.3;
+    const musicUrl = config.music_url;
+    if (!musicUrl) {
+      setHasMusic(false);
+      return;
+    }
+
+    const audio = new Audio(musicUrl);
+    audio.loop = true;
+    audio.volume = 0.3;
+
+    // Only show player if audio can load
+    audio.addEventListener("canplaythrough", () => setHasMusic(true));
+    audio.addEventListener("error", () => setHasMusic(false));
+    audio.load();
+
+    audioRef.current = audio;
 
     return () => {
-      audioRef.current?.pause();
+      audio.pause();
+      audio.removeAttribute("src");
     };
-  }, []);
+  }, [config.music_url]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
     if (playing) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play().catch(() => {
-        // Autoplay blocked by browser
-      });
+      audioRef.current.play().catch(() => {});
     }
     setPlaying(!playing);
   };
@@ -37,6 +51,9 @@ export default function MusicPlayer() {
     audioRef.current.muted = !muted;
     setMuted(!muted);
   };
+
+  // Don't render if no music configured or file can't load
+  if (!hasMusic) return null;
 
   return (
     <div className="music-player">

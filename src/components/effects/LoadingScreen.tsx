@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useSiteConfig } from "@/lib/useSiteConfig";
 
 export default function LoadingScreen({
   onComplete,
@@ -11,6 +12,7 @@ export default function LoadingScreen({
   const [phase, setPhase] = useState<"matrix" | "logo" | "done">("matrix");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onCompleteRef = useRef(onComplete);
+  const config = useSiteConfig();
   onCompleteRef.current = onComplete;
 
   // Matrix rain effect
@@ -79,10 +81,10 @@ export default function LoadingScreen({
           }`}
         >
           <h1 className="text-6xl font-bold gradient-text tracking-wider">
-            TechBlog
+            {config.site_name || "TechBlog"}
           </h1>
           <p className="text-center text-muted mt-2 font-mono text-sm">
-            DBA | SRE | AI | BigData | Dev
+            {config.site_description || "Loading..."}
           </p>
         </div>
 
