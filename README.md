@@ -60,7 +60,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <repo-url> tech-blog
+git clone git@github.com:yansongwel/tech-blog-next.git tech-blog
 cd tech-blog
 ```
 

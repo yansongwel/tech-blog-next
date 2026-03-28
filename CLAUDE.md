@@ -102,11 +102,16 @@ docker compose up -d --build                       # 生产部署
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | /api/posts | 文章列表（支持分页/分类/搜索） |
+| GET | /api/posts/[slug] | 单篇文章详情（自增浏览量） |
 | POST | /api/posts | 创建文章（需认证） |
+| GET | /api/categories | 分类列表（含子分类和文章数） |
 | GET | /api/comments?postId=xxx | 获取评论 |
 | POST | /api/comments | 创建评论 |
 | POST | /api/likes | 点赞/取消点赞 |
 | POST | /api/subscribe | 邮箱订阅 |
+| GET | /api/admin/stats | 仪表盘统计数据（需认证） |
+| GET | /api/admin/posts | 管理后台文章列表（需认证） |
+| DELETE | /api/admin/posts?id=xxx | 删除文章（需认证） |
 | GET | /api/wechat | 微信服务器验证 |
 | POST | /api/wechat | 处理微信消息 |
 | PUT | /api/wechat | 验证解锁码 |

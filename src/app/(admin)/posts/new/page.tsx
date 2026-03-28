@@ -42,6 +42,7 @@ export default function NewPostPage() {
       }),
     ],
     content: "",
+    immediatelyRender: false,
     editorProps: {
       attributes: {
         class:
