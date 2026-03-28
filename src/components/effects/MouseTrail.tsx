@@ -90,8 +90,9 @@ export default function MouseTrail() {
         p.life -= 0.02;
 
         const alpha = p.life;
+        const radius = Math.max(0, p.size * p.life);
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
         ctx.fillStyle =
           p.hue === 239
             ? `rgba(99, 102, 241, ${alpha})`

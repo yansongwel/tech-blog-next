@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { GitBranch, Mail, Rss } from "lucide-react";
+import { GitBranch, Mail, Rss, Clock, Eye, Users } from "lucide-react";
 import { useSiteConfig } from "@/lib/useSiteConfig";
 
 interface Category {
@@ -10,11 +10,23 @@ interface Category {
   slug: string;
 }
 
+function RunningDays({ startDate }: { startDate: string }) {
+  const days = Math.floor(
+    (Date.now() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  return <span className="font-mono text-foreground">{Math.max(1, days)}</span>;
+}
+
 export default function Footer() {
   const config = useSiteConfig();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [stats, setStats] = useState<{ totalViews: number; siteVisits: number; startDate: string } | null>(null);
 
   useEffect(() => {
+    fetch("/api/site-stats")
+      .then((r) => r.json())
+      .then((data) => setStats(data))
+      .catch(() => {});
     fetch("/api/categories")
       .then((r) => r.json())
       .then((data) => {
@@ -88,7 +100,25 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted">
+        {/* Site stats */}
+        {stats && (
+          <div className="mt-8 pt-6 border-t border-border flex flex-wrap items-center justify-center gap-6 text-sm text-muted">
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-primary-light" />
+              运行 <RunningDays startDate={stats.startDate} /> 天
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Eye className="w-4 h-4 text-accent" />
+              文章浏览 {stats.totalViews.toLocaleString()} 次
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-primary-light" />
+              访问 {stats.siteVisits.toLocaleString()} 次
+            </span>
+          </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t border-border text-center text-sm text-muted">
           &copy; {new Date().getFullYear()} {siteName}. All rights reserved.
           {icpNumber && <span className="ml-4">{icpNumber}</span>}
         </div>

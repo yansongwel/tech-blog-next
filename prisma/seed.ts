@@ -155,6 +155,7 @@ async function main() {
     { key: "icp_number", value: "" },
     { key: "wechat_qr_url", value: "/images/wechat-qr.png" },
     { key: "music_url", value: "" },
+    { key: "site_start_date", value: new Date().toISOString().slice(0, 10) },
   ];
 
   for (const config of configs) {
