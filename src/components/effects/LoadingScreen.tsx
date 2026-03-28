@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 export default function LoadingScreen({
   onComplete,
@@ -10,6 +10,8 @@ export default function LoadingScreen({
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState<"matrix" | "logo" | "done">("matrix");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   // Matrix rain effect
   useEffect(() => {
@@ -48,21 +50,21 @@ export default function LoadingScreen({
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Progress bar
+  // Progress bar - only runs once on mount
   useEffect(() => {
     const timer = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(timer);
           setPhase("logo");
-          setTimeout(onComplete, 1200);
+          setTimeout(() => onCompleteRef.current(), 1200);
           return 100;
         }
         return prev + Math.random() * 8 + 2;
       });
     }, 100);
     return () => clearInterval(timer);
-  }, [onComplete]);
+  }, []);
 
   if (phase === "done") return null;
 
