@@ -73,27 +73,28 @@ async function syncTags(postId: string, tagNames: string[]): Promise<void> {
 
   const slugs = tagNames.map((t) => t.toLowerCase().replace(/\s+/g, "-"));
 
-  // Batch upsert all tags in a single transaction
-  await prisma.$transaction(
-    tagNames.map((name, i) =>
-      prisma.tag.upsert({
+  // Upsert tags, then replace post-tag links in a single interactive transaction
+  // to eliminate the race window between upsert and findMany
+  await prisma.$transaction(async (tx) => {
+    // Upsert all tags
+    for (let i = 0; i < tagNames.length; i++) {
+      await tx.tag.upsert({
         where: { slug: slugs[i] },
         update: {},
-        create: { name, slug: slugs[i] },
-      })
-    )
-  );
+        create: { name: tagNames[i], slug: slugs[i] },
+      });
+    }
 
-  const tags = await prisma.tag.findMany({ where: { slug: { in: slugs } } });
+    // Fetch tag IDs within the same transaction
+    const tags = await tx.tag.findMany({ where: { slug: { in: slugs } } });
 
-  // Replace all post-tag links atomically
-  await prisma.$transaction([
-    prisma.postTag.deleteMany({ where: { postId } }),
-    prisma.postTag.createMany({
+    // Replace post-tag links
+    await tx.postTag.deleteMany({ where: { postId } });
+    await tx.postTag.createMany({
       data: tags.map((tag) => ({ postId, tagId: tag.id })),
       skipDuplicates: true,
-    }),
-  ]);
+    });
+  });
 }
 
 // ─── Public API ──────────────────────────────────────────

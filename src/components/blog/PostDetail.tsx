@@ -124,8 +124,11 @@ export default function PostDetail({ slug }: { slug: string }) {
     ].join("");
     const withToolbars = html.replace(
       /<pre><code class="language-(\w+)">/g,
-      (_, lang) =>
-        `<pre style="position:relative;padding-top:2.5rem"><div class="code-toolbar" style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;font-size:12px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);border-radius:12px 12px 0 0"><span style="font-family:monospace">${lang.toUpperCase()}</span><button class="copy-btn" style="padding:2px 8px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;border-radius:4px;cursor:pointer;font-size:12px" onclick="${copyFn}">复制</button></div><code class="language-${lang}">`
+      (_, rawLang) => {
+        // Defense-in-depth: strip any non-alphanumeric chars (regex already limits to \w)
+        const lang = rawLang.replace(/[^a-zA-Z0-9]/g, "");
+        return `<pre style="position:relative;padding-top:2.5rem"><div class="code-toolbar" style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;font-size:12px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);border-radius:12px 12px 0 0"><span style="font-family:monospace">${lang.toUpperCase()}</span><button class="copy-btn" style="padding:2px 8px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;border-radius:4px;cursor:pointer;font-size:12px" onclick="${copyFn}">复制</button></div><code class="language-${lang}">`;
+      }
     );
     return { safeHtml: withToolbars, tocHeadings: headings };
   }, [post]);
@@ -191,13 +194,9 @@ export default function PostDetail({ slug }: { slug: string }) {
         }).catch(() => {});
       }
 
-      // Add lightbox click to article images
+      // Add zoom cursor to article images (lightbox handled via event delegation)
       document.querySelectorAll("article img").forEach((img) => {
-        const el = img as HTMLImageElement;
-        if (el.dataset.lightbox) return;
-        el.dataset.lightbox = "true";
-        el.style.cursor = "zoom-in";
-        el.addEventListener("click", () => setLightboxUrl(el.src));
+        (img as HTMLElement).style.cursor = "zoom-in";
       });
 
       setContentReady(true);
@@ -313,7 +312,15 @@ export default function PostDetail({ slug }: { slug: string }) {
           )}
         </header>
 
-        <article className="glass rounded-2xl p-4 sm:p-6 md:p-10 mb-8">
+        <article
+          className="glass rounded-2xl p-4 sm:p-6 md:p-10 mb-8"
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName === "IMG" && target.closest(".prose")) {
+              setLightboxUrl((target as HTMLImageElement).src);
+            }
+          }}
+        >
           <div
             className="prose max-w-none
               [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-10 [&_h1]:mb-4

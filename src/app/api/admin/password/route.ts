@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { rateLimit, getClientIp } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
 
-// PUT /api/admin/password - Change admin password
+// PUT /api/admin/password - Change admin password (rate limited: 5 per 15 min)
 export async function PUT(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const allowed = await rateLimit(`rl:pw-change:${ip}`, 5, 900, false);
+    if (!allowed) {
+      return NextResponse.json({ error: "操作过于频繁，请 15 分钟后再试" }, { status: 429 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

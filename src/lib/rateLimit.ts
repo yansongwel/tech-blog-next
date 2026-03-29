@@ -5,12 +5,15 @@ import { redis } from "./redis";
  * @param key - Unique identifier (e.g., IP + endpoint)
  * @param limit - Max requests allowed in the window
  * @param windowSeconds - Time window in seconds
+ * @param failOpen - If true, allow requests when Redis is down (default).
+ *                   Set false for security-sensitive endpoints (e.g., password change).
  * @returns true if request is allowed, false if rate limited
  */
 export async function rateLimit(
   key: string,
   limit: number,
-  windowSeconds: number
+  windowSeconds: number,
+  failOpen = true
 ): Promise<boolean> {
   try {
     const current = await redis.incr(key);
@@ -19,8 +22,7 @@ export async function rateLimit(
     }
     return current <= limit;
   } catch {
-    // If Redis is down, allow the request
-    return true;
+    return failOpen;
   }
 }
 
