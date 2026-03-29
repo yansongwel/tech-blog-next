@@ -102,7 +102,7 @@ export default function HomePage() {
   const [subscribeMsg, setSubscribeMsg] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [visitorInfo, setVisitorInfo] = useState<{ ip: string; city?: string; region?: string; country?: string } | null>(null);
-  const [siteStats, setSiteStats] = useState<{ totalViews: number; totalPosts: number; totalLikes: number; siteVisits: number } | null>(null);
+  const [siteStats, setSiteStats] = useState<{ totalViews: number; totalPosts: number; totalLikes: number; siteVisits: number; hotPosts?: { id: string; title: string; slug: string; viewCount: number; category: { name: string } }[] } | null>(null);
   const config = useSiteConfig();
   const fullText = useMemo(() => config.site_description || "探索技术的无限可能", [config.site_description]);
   const revealRef = useScrollReveal<HTMLDivElement>();
@@ -322,6 +322,40 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* ===== Hot Posts Ranking ===== */}
+      {siteStats?.hotPosts && siteStats.hotPosts.length > 0 && (
+        <section className="py-10 scroll-reveal">
+          <SectionHeading title="热门文章" action={{ label: "查看全部", href: "/blog" }} />
+          <div className="glass rounded-2xl p-6">
+            {siteStats.hotPosts.map((hp, i) => (
+              <Link
+                key={hp.id}
+                href={`/blog/${hp.slug}`}
+                className={`flex items-center gap-4 py-3 group cursor-pointer ${i < siteStats.hotPosts!.length - 1 ? "border-b border-border/20" : ""}`}
+              >
+                <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                  i === 0 ? "bg-gradient-to-br from-amber-500 to-orange-500 text-white" :
+                  i === 1 ? "bg-gradient-to-br from-slate-400 to-slate-500 text-white" :
+                  i === 2 ? "bg-gradient-to-br from-amber-700 to-amber-800 text-white" :
+                  "bg-surface text-muted"
+                }`}>
+                  {i + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-medium text-foreground group-hover:text-primary-light transition-colors line-clamp-1">
+                    {hp.title}
+                  </h4>
+                  <span className="text-xs text-muted">{hp.category.name}</span>
+                </div>
+                <span className="text-xs text-muted flex items-center gap-1 shrink-0">
+                  <Eye className="w-3 h-3" />{hp.viewCount.toLocaleString()}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="section-divider my-4" />
 

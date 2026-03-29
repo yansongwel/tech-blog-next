@@ -4,21 +4,12 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import PostCard from "@/components/blog/PostCard";
 import { PostGridSkeleton } from "@/components/blog/Skeleton";
-import { Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
 
-const allCategories = [
-  "全部", "DBA", "SRE", "AI", "大数据", "Python", "Golang", "前端",
-];
-
-const categorySlugMap: Record<string, string> = {
-  "DBA": "dba",
-  "SRE": "sre",
-  "AI": "ai",
-  "大数据": "bigdata",
-  "Python": "python",
-  "Golang": "golang",
-  "前端": "frontend",
-};
+interface Category {
+  name: string;
+  slug: string;
+}
 
 interface Post {
   id: string;
@@ -49,18 +40,26 @@ export default function BlogListPage() {
 function BlogListContent() {
   const searchParams = useSearchParams();
   const urlSearch = searchParams.get("search") || "";
-  const [activeCategory, setActiveCategory] = useState("全部");
+  const [activeSlug, setActiveSlug] = useState("");
   const [searchQuery, setSearchQuery] = useState(urlSearch);
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [posts, setPosts] = useState<Post[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pages: 1, total: 0 });
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setCategories(data); })
+      .catch(() => {});
+  }, []);
 
   const fetchPosts = useCallback(async (page = 1) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "12" });
-    if (activeCategory !== "全部") {
-      params.set("category", categorySlugMap[activeCategory] || activeCategory.toLowerCase());
+    if (activeSlug) {
+      params.set("category", activeSlug);
     }
     if (searchQuery) {
       params.set("search", searchQuery);
@@ -77,7 +76,7 @@ function BlogListContent() {
     } finally {
       setLoading(false);
     }
-  }, [activeCategory, searchQuery]);
+  }, [activeSlug, searchQuery]);
 
   useEffect(() => {
     fetchPosts(1);
@@ -86,6 +85,11 @@ function BlogListContent() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearchQuery(searchInput);
+  };
+
+  const clearSearch = () => {
+    setSearchInput("");
+    setSearchQuery("");
   };
 
   return (
@@ -106,23 +110,42 @@ function BlogListContent() {
             placeholder="搜索文章..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-10 pr-9 py-2.5 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
           />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-muted hover:text-foreground cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </form>
 
-        {/* Category tabs */}
+        {/* Category tabs - dynamic from API */}
         <div className="flex flex-wrap gap-2">
-          {allCategories.map((cat) => (
+          <button
+            onClick={() => setActiveSlug("")}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-all cursor-pointer ${
+              !activeSlug
+                ? "bg-primary text-white"
+                : "bg-surface text-muted hover:text-foreground border border-border"
+            }`}
+          >
+            全部
+          </button>
+          {categories.map((cat) => (
             <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
+              key={cat.slug}
+              onClick={() => setActiveSlug(cat.slug)}
               className={`px-3 py-1.5 text-sm rounded-lg transition-all cursor-pointer ${
-                activeCategory === cat
+                activeSlug === cat.slug
                   ? "bg-primary text-white"
                   : "bg-surface text-muted hover:text-foreground border border-border"
               }`}
             >
-              {cat}
+              {cat.name}
             </button>
           ))}
         </div>
@@ -135,7 +158,7 @@ function BlogListContent() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <PostCard key={post.id} post={post} searchQuery={searchQuery || undefined} />
             ))}
           </div>
 

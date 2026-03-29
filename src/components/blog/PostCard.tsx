@@ -17,6 +17,24 @@ interface PostCardProps {
     _count?: { likes: number; comments: number };
     publishedAt: string;
   };
+  searchQuery?: string;
+}
+
+function HighlightText({ text, query }: { text: string; query?: string }) {
+  if (!query || !text) return <>{text}</>;
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-primary/30 text-foreground rounded px-0.5">{part}</mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
 }
 
 function formatDate(dateStr: string) {
@@ -32,7 +50,7 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
 }
 
-export default memo(function PostCard({ post }: PostCardProps) {
+export default memo(function PostCard({ post, searchQuery }: PostCardProps) {
   return (
     <Link
       href={`/blog/${post.slug}`}
@@ -65,10 +83,10 @@ export default memo(function PostCard({ post }: PostCardProps) {
         {/* Content */}
         <div className="p-5 flex flex-col flex-1">
           <h3 className="text-lg font-semibold text-foreground group-hover:text-primary-light transition-colors line-clamp-2 mb-2">
-            {post.title}
+            <HighlightText text={post.title} query={searchQuery} />
           </h3>
           <p className="text-sm text-muted line-clamp-2 mb-4 flex-1">
-            {post.excerpt}
+            <HighlightText text={post.excerpt} query={searchQuery} />
           </p>
 
           {/* Meta */}

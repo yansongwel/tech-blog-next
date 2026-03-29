@@ -6,12 +6,18 @@ export const dynamic = "force-dynamic";
 
 // GET /api/site-stats - Public site statistics
 export async function GET() {
-  const [viewsResult, totalPosts, totalLikes, siteVisits, startDateConfig] = await Promise.all([
+  const [viewsResult, totalPosts, totalLikes, siteVisits, startDateConfig, hotPosts] = await Promise.all([
     prisma.post.aggregate({ _sum: { viewCount: true } }),
     prisma.post.count({ where: { status: "PUBLISHED" } }),
     prisma.like.count(),
     redis.incr("site:visits"),
     prisma.siteConfig.findUnique({ where: { key: "site_start_date" } }),
+    prisma.post.findMany({
+      where: { status: "PUBLISHED" },
+      select: { id: true, title: true, slug: true, viewCount: true, category: { select: { name: true } } },
+      orderBy: { viewCount: "desc" },
+      take: 5,
+    }),
   ]);
 
   return NextResponse.json({
@@ -20,5 +26,6 @@ export async function GET() {
     totalLikes,
     siteVisits,
     startDate: startDateConfig?.value || new Date().toISOString().slice(0, 10),
+    hotPosts,
   });
 }

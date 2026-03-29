@@ -13,8 +13,12 @@ import {
   X,
   Link2,
   FolderTree,
+  Mail,
+  Tag,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { ToastProvider } from "@/components/admin/Toast";
+import NotificationBell from "@/components/admin/NotificationBell";
 
 const sidebarLinks = [
   { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
@@ -22,7 +26,9 @@ const sidebarLinks = [
   { href: "/comments", label: "评论管理", icon: MessageSquare },
   { href: "/media", label: "媒体库", icon: Image },
   { href: "/categories", label: "分类管理", icon: FolderTree },
+  { href: "/tag-manager", label: "标签管理", icon: Tag },
   { href: "/friend-links", label: "友情链接", icon: Link2 },
+  { href: "/subscribers", label: "订阅管理", icon: Mail },
   { href: "/settings", label: "设置", icon: Settings },
 ];
 
@@ -127,6 +133,7 @@ export default function AdminLayout({
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <Link
               href="/"
               className="text-xs text-muted hover:text-foreground cursor-pointer"
@@ -140,7 +147,9 @@ export default function AdminLayout({
         </header>
 
         {/* Content */}
-        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+        <main className="flex-1 p-6 overflow-y-auto">
+          <ToastProvider>{children}</ToastProvider>
+        </main>
       </div>
 
       {/* Mobile overlay */}
