@@ -9,14 +9,16 @@ import MouseTrail from "@/components/effects/MouseTrail";
 import DancingCharacter from "@/components/effects/DancingCharacter";
 import LoadingScreen from "@/components/effects/LoadingScreen";
 import ScrollButtons from "@/components/layout/ScrollButtons";
+import ThemeApplier from "@/components/ThemeApplier";
 
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Start with loading=true on both server and client to avoid hydration mismatch
-  const [loading, setLoading] = useState(true);
+  // null = not yet determined (avoids hydration mismatch)
+  // true = show loading screen, false = skip
+  const [loading, setLoading] = useState<boolean | null>(null);
 
   useEffect(() => {
     const visited = sessionStorage.getItem("visited");
@@ -24,12 +26,14 @@ export default function PublicLayout({
       setLoading(false);
     } else {
       sessionStorage.setItem("visited", "true");
+      setLoading(true);
     }
   }, []);
 
   return (
     <>
-      {loading && <LoadingScreen onComplete={() => setLoading(false)} />}
+      {loading === true && <LoadingScreen onComplete={() => setLoading(false)} />}
+      <ThemeApplier />
       <ParticleBackground />
       <MouseTrail />
       <Navbar />

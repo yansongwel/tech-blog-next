@@ -1,31 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore, useCallback } from "react";
 
-const cache: { data: Record<string, string> | null; promise: Promise<Record<string, string>> | null } = {
-  data: null,
-  promise: null,
-};
+let cache: Record<string, string> = {};
+let listeners: Array<() => void> = [];
+let fetched = false;
+
+function subscribe(listener: () => void) {
+  listeners.push(listener);
+  return () => {
+    listeners = listeners.filter((l) => l !== listener);
+  };
+}
+
+function notify() {
+  for (const listener of listeners) listener();
+}
+
+function fetchConfig() {
+  if (fetched) return;
+  fetched = true;
+  fetch("/api/site-config")
+    .then((r) => r.json())
+    .then((data) => {
+      if (data && !data.error) {
+        cache = data;
+        notify();
+      }
+    })
+    .catch(() => {});
+}
 
 export function useSiteConfig() {
-  const [config, setConfig] = useState<Record<string, string>>(cache.data || {});
+  const getSnapshot = useCallback(() => cache, []);
+  const config = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
-  useEffect(() => {
-    if (cache.data) {
-      setConfig(cache.data);
-      return;
-    }
-    if (!cache.promise) {
-      cache.promise = fetch("/api/site-config")
-        .then((r) => r.json())
-        .then((data) => {
-          cache.data = data;
-          return data;
-        })
-        .catch(() => ({}));
-    }
-    cache.promise.then((data) => setConfig(data));
-  }, []);
+  if (!fetched) fetchConfig();
 
   return config;
 }

@@ -13,7 +13,7 @@ export default function LoadingScreen({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onCompleteRef = useRef(onComplete);
   const config = useSiteConfig();
-  onCompleteRef.current = onComplete;
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   // Matrix rain effect
   useEffect(() => {

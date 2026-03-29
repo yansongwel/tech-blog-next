@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Upload, Trash2, Loader2, Image as ImageIcon, Copy, Check } from "lucide-react";
+import { Upload, Trash2, Loader2, Image as ImageIcon, Copy, Check, X } from "lucide-react";
 
 interface Media {
   id: string;
@@ -23,6 +23,7 @@ export default function MediaPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchMedia = () => {
@@ -43,21 +44,31 @@ export default function MediaPage() {
     if (!files?.length) return;
 
     setUploading(true);
+    let failed = 0;
     for (const file of Array.from(files)) {
       const formData = new FormData();
       formData.append("file", file);
       try {
-        await fetch("/api/admin/media", { method: "POST", body: formData });
-      } catch {}
+        const res = await fetch("/api/admin/media", { method: "POST", body: formData });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
     }
     setUploading(false);
+    if (failed > 0) alert(`${failed} 个文件上传失败`);
     fetchMedia();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleDelete = async (id: string, filename: string) => {
     if (!confirm(`确定删除「${filename}」？`)) return;
-    await fetch(`/api/admin/media?id=${id}`, { method: "DELETE" });
+    try {
+      const res = await fetch(`/api/admin/media?id=${id}`, { method: "DELETE" });
+      if (!res.ok) alert("删除失败");
+    } catch {
+      alert("网络错误，请重试");
+    }
     fetchMedia();
   };
 
@@ -114,7 +125,8 @@ export default function MediaPage() {
                 <img
                   src={item.url}
                   alt={item.filename}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={() => setPreviewUrl(item.url)}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
@@ -146,6 +158,28 @@ export default function MediaPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Lightbox preview */}
+      {previewUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setPreviewUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewUrl}
+            alt="预览"
+            className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setPreviewUrl(null)}
+            className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white cursor-pointer"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
       )}
     </div>

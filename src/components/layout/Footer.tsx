@@ -10,16 +10,21 @@ interface Category {
   slug: string;
 }
 
-function RunningDays({ startDate }: { startDate: string }) {
-  const days = Math.floor(
+function computeDays(startDate: string) {
+  return Math.max(1, Math.floor(
     (Date.now() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  return <span className="font-mono text-foreground">{Math.max(1, days)}</span>;
+  ));
+}
+
+function RunningDays({ startDate }: { startDate: string }) {
+  const [days] = useState(() => computeDays(startDate));
+  return <span suppressHydrationWarning className="font-mono text-foreground">{days}</span>;
 }
 
 export default function Footer() {
   const config = useSiteConfig();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [friendLinks, setFriendLinks] = useState<{ id: string; name: string; url: string; description: string | null; logo: string | null }[]>([]);
   const [stats, setStats] = useState<{ totalViews: number; siteVisits: number; startDate: string } | null>(null);
 
   useEffect(() => {
@@ -29,9 +34,11 @@ export default function Footer() {
       .catch(() => {});
     fetch("/api/categories")
       .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setCategories(data);
-      })
+      .then((data) => { if (Array.isArray(data)) setCategories(data); })
+      .catch(() => {});
+    fetch("/api/friend-links")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setFriendLinks(data); })
       .catch(() => {});
   }, []);
 
@@ -99,6 +106,31 @@ export default function Footer() {
             </div>
           </div>
         </div>
+
+        {/* Friend Links */}
+        {friendLinks.length > 0 && (
+          <div className="mt-8 pt-6 border-t border-border">
+            <h4 className="font-semibold text-foreground mb-3">友情链接</h4>
+            <div className="flex flex-wrap gap-3">
+              {friendLinks.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-muted hover:text-foreground bg-surface/50 hover:bg-white/5 border border-border rounded-lg transition-colors cursor-pointer"
+                  title={link.description || link.name}
+                >
+                  {link.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={link.logo} alt={link.name} className="w-4 h-4 rounded-full" />
+                  ) : null}
+                  {link.name}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Site stats */}
         {stats && (

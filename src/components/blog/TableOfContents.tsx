@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { List, ChevronDown } from "lucide-react";
 
 interface TocItem {
   id: string;
@@ -8,12 +9,17 @@ interface TocItem {
   level: number;
 }
 
+function slugify(text: string, index: number): string {
+  const base = text.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "-").replace(/^-|-$/g, "") || "heading";
+  return `${base}-${index}`;
+}
+
 export default function TableOfContents() {
   const [headings, setHeadings] = useState<TocItem[]>([]);
   const [activeId, setActiveId] = useState("");
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    // Parse headings from article content
     const article = document.querySelector("article");
     if (!article) return;
 
@@ -21,7 +27,7 @@ export default function TableOfContents() {
     const items: TocItem[] = [];
 
     elements.forEach((el, i) => {
-      const id = el.id || `heading-${i}`;
+      const id = el.id || slugify(el.textContent || "", i);
       if (!el.id) el.id = id;
       items.push({
         id,
@@ -55,37 +61,68 @@ export default function TableOfContents() {
     return () => observer.disconnect();
   }, [headings]);
 
+  const scrollToHeading = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+    setMobileOpen(false);
+  };
+
   if (headings.length < 2) return null;
 
+  const tocList = (
+    <ul className="space-y-1">
+      {headings.map((item) => (
+        <li key={item.id}>
+          <button
+            onClick={() => scrollToHeading(item.id)}
+            className={`block w-full text-left text-xs py-1.5 transition-colors cursor-pointer rounded px-2 ${
+              item.level === 3 ? "pl-5" : ""
+            } ${
+              activeId === item.id
+                ? "text-primary-light font-medium bg-primary/10"
+                : "text-muted hover:text-foreground hover:bg-white/5"
+            }`}
+          >
+            {item.text}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
-    <nav className="hidden xl:block fixed right-8 top-24 w-56 max-h-[calc(100vh-8rem)] overflow-y-auto">
-      <div className="glass rounded-xl p-4">
-        <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-          目录
-        </h4>
-        <ul className="space-y-1">
-          {headings.map((item) => (
-            <li key={item.id}>
-              <a
-                href={`#${item.id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className={`block text-xs py-1 transition-colors cursor-pointer ${
-                  item.level === 3 ? "pl-3" : ""
-                } ${
-                  activeId === item.id
-                    ? "text-primary-light font-medium"
-                    : "text-muted hover:text-foreground"
-                }`}
-              >
-                {item.text}
-              </a>
-            </li>
-          ))}
-        </ul>
+    <>
+      {/* Desktop TOC - fixed sidebar */}
+      <nav className="hidden xl:block fixed right-8 top-24 w-56 max-h-[calc(100vh-8rem)] overflow-y-auto">
+        <div className="glass rounded-xl p-4">
+          <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <List className="w-3.5 h-3.5" /> 目录
+          </h4>
+          {tocList}
+        </div>
+      </nav>
+
+      {/* Mobile TOC - collapsible at top of article */}
+      <div className="xl:hidden mb-6">
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="w-full flex items-center justify-between px-4 py-3 glass rounded-xl text-sm text-foreground cursor-pointer"
+        >
+          <span className="flex items-center gap-2">
+            <List className="w-4 h-4 text-primary-light" />
+            文章目录 ({headings.length})
+          </span>
+          <ChevronDown className={`w-4 h-4 text-muted transition-transform ${mobileOpen ? "rotate-180" : ""}`} />
+        </button>
+        {mobileOpen && (
+          <div className="mt-2 glass rounded-xl p-3 animate-fade-in max-h-60 overflow-y-auto">
+            {tocList}
+          </div>
+        )}
       </div>
-    </nav>
+    </>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import PostCard from "@/components/blog/PostCard";
 import { PostGridSkeleton } from "@/components/blog/Skeleton";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 
 const allCategories = [
   "全部", "DBA", "SRE", "AI", "大数据", "Python", "Golang", "前端",
@@ -142,19 +142,38 @@ function BlogListContent() {
           {/* Pagination */}
           {pagination.pages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-10">
-              {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => fetchPosts(p)}
-                  className={`w-10 h-10 rounded-lg text-sm transition-colors cursor-pointer ${
-                    p === pagination.page
-                      ? "bg-primary text-white"
-                      : "bg-surface text-muted hover:text-foreground border border-border"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+              <button
+                onClick={() => fetchPosts(pagination.page - 1)}
+                disabled={pagination.page <= 1}
+                className="p-2.5 rounded-lg text-muted hover:text-foreground hover:bg-white/5 disabled:opacity-30 cursor-pointer transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              {Array.from({ length: pagination.pages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === pagination.pages || Math.abs(p - pagination.page) <= 2)
+                .map((p, idx, arr) => (
+                  <span key={p} className="flex items-center">
+                    {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-muted">...</span>}
+                    <button
+                      onClick={() => fetchPosts(p)}
+                      className={`w-10 h-10 rounded-lg text-sm transition-colors cursor-pointer ${
+                        p === pagination.page
+                          ? "bg-primary text-white"
+                          : "bg-surface text-muted hover:text-foreground border border-border"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  </span>
+                ))}
+              <button
+                onClick={() => fetchPosts(pagination.page + 1)}
+                disabled={pagination.page >= pagination.pages}
+                className="p-2.5 rounded-lg text-muted hover:text-foreground hover:bg-white/5 disabled:opacity-30 cursor-pointer transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <span className="text-xs text-muted ml-2">共 {pagination.total} 篇</span>
             </div>
           )}
         </>

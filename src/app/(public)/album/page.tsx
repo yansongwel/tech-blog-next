@@ -142,7 +142,7 @@ function Scene({ layout }: { layout: Layout }) {
               2 * Math.cos(3 * angle) -
               Math.cos(4 * angle)) *
             0.12;
-          return [x, y, (Math.random() - 0.5) * 2] as [number, number, number];
+          return [x, y, ((i * 0.618) % 1 - 0.5) * 2] as [number, number, number];
         }
         case "helix": {
           const angle = t * Math.PI * 6;

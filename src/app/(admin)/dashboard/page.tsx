@@ -8,7 +8,11 @@ import {
   Users,
   FileText,
   Loader2,
+  Plus,
+  Image,
+  Settings,
 } from "lucide-react";
+import Link from "next/link";
 import {
   AreaChart,
   Area,
@@ -93,7 +97,34 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground mb-6">仪表盘</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-foreground">仪表盘</h1>
+        <div className="flex gap-2">
+          <Link href="/posts/new" className="flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary-light text-white rounded-lg text-sm transition-colors cursor-pointer">
+            <Plus className="w-4 h-4" /> 新建文章
+          </Link>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        <Link href="/posts/new" className="glass rounded-xl p-4 flex items-center gap-3 card-hover cursor-pointer">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Plus className="w-5 h-5 text-primary-light" /></div>
+          <div><p className="text-sm font-medium text-foreground">新建文章</p><p className="text-xs text-muted">创建新内容</p></div>
+        </Link>
+        <Link href="/comments" className="glass rounded-xl p-4 flex items-center gap-3 card-hover cursor-pointer">
+          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center"><MessageCircle className="w-5 h-5 text-accent-light" /></div>
+          <div><p className="text-sm font-medium text-foreground">评论管理</p><p className="text-xs text-muted">审核评论</p></div>
+        </Link>
+        <Link href="/media" className="glass rounded-xl p-4 flex items-center gap-3 card-hover cursor-pointer">
+          <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center"><Image className="w-5 h-5 text-green-400" /></div>
+          <div><p className="text-sm font-medium text-foreground">媒体库</p><p className="text-xs text-muted">管理图片</p></div>
+        </Link>
+        <Link href="/settings" className="glass rounded-xl p-4 flex items-center gap-3 card-hover cursor-pointer">
+          <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center"><Settings className="w-5 h-5 text-yellow-400" /></div>
+          <div><p className="text-sm font-medium text-foreground">站点设置</p><p className="text-xs text-muted">外观配置</p></div>
+        </Link>
+      </div>
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">

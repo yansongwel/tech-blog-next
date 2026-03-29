@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Save, Upload, Loader2, FileUp } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Save, Upload, Loader2, FileUp, Eye } from "lucide-react";
+import { marked } from "marked";
 import Link from "next/link";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import ImageExtension from "@tiptap/extension-image";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
+import LinkExtension from "@tiptap/extension-link";
 import { all, createLowlight } from "lowlight";
 import { useRouter } from "next/navigation";
 
@@ -25,6 +28,9 @@ export default function NewPostPage() {
   const [excerpt, setExcerpt] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [tags, setTags] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [coverImage, setCoverImage] = useState("");
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -37,6 +43,11 @@ export default function NewPostPage() {
         codeBlock: false,
       }),
       ImageExtension,
+      LinkExtension.configure({ openOnClick: false }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
       CodeBlockLowlight.configure({
         lowlight,
         defaultLanguage: "plaintext",
@@ -119,7 +130,8 @@ export default function NewPostPage() {
         body: JSON.stringify({
           title,
           content: editor.getHTML(),
-          excerpt,
+          excerpt: excerpt || null,
+          coverImage: coverImage || null,
           categoryId,
           status,
           isLocked,
@@ -281,6 +293,28 @@ export default function NewPostPage() {
                 <ToolbarButton
                   active={false}
                   onClick={() => {
+                    const url = prompt("输入链接 URL:");
+                    if (url) editor.chain().focus().setLink({ href: url }).run();
+                  }}
+                >
+                  Link
+                </ToolbarButton>
+                <ToolbarButton
+                  active={false}
+                  onClick={() => editor.chain().focus().setHorizontalRule().run()}
+                >
+                  HR
+                </ToolbarButton>
+                <ToolbarButton
+                  active={false}
+                  onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+                >
+                  Table
+                </ToolbarButton>
+                <span className="w-px h-5 bg-border mx-1" />
+                <ToolbarButton
+                  active={false}
+                  onClick={() => {
                     const url = prompt("输入图片 URL:");
                     if (url) editor.chain().focus().setImage({ src: url }).run();
                   }}
@@ -289,35 +323,30 @@ export default function NewPostPage() {
                 </ToolbarButton>
                 <span className="w-px h-5 bg-border mx-1" />
                 <label className="px-2 py-1 text-xs text-muted hover:text-foreground hover:bg-white/5 rounded transition-colors cursor-pointer flex items-center gap-1">
-                  <FileUp className="w-3 h-3" /> .md
+                  <FileUp className="w-3 h-3" /> 导入
                   <input
                     type="file"
-                    accept=".md,.markdown,.txt"
+                    accept=".md,.markdown,.txt,.html,.htm"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       const reader = new FileReader();
                       reader.onload = () => {
-                        const md = reader.result as string;
-                        // Extract title from first # heading
-                        const titleMatch = md.match(/^#\s+(.+)$/m);
-                        if (titleMatch && !title) setTitle(titleMatch[1]);
-                        // Convert basic markdown to HTML for Tiptap
-                        const html = md
-                          .replace(/^#{3}\s+(.+)$/gm, "<h3>$1</h3>")
-                          .replace(/^#{2}\s+(.+)$/gm, "<h2>$1</h2>")
-                          .replace(/^#{1}\s+(.+)$/gm, "")
-                          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-                          .replace(/\*(.+?)\*/g, "<em>$1</em>")
-                          .replace(/`{3}(\w*)\n([\s\S]*?)`{3}/g, "<pre><code>$2</code></pre>")
-                          .replace(/`([^`]+)`/g, "<code>$1</code>")
-                          .replace(/^\- (.+)$/gm, "<li>$1</li>")
-                          .replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>")
-                          .replace(/^> (.+)$/gm, "<blockquote><p>$1</p></blockquote>")
-                          .replace(/^(?!<[huplbo])([\w\u4e00-\u9fa5].+)$/gm, "<p>$1</p>")
-                          .replace(/\n{2,}/g, "");
-                        editor?.commands.setContent(html);
+                        const text = reader.result as string;
+                        const ext = file.name.split(".").pop()?.toLowerCase();
+                        if (ext === "html" || ext === "htm") {
+                          const titleMatch = text.match(/<title>(.+?)<\/title>/i);
+                          if (titleMatch && !title) setTitle(titleMatch[1]);
+                          const bodyMatch = text.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                          editor?.commands.setContent(bodyMatch ? bodyMatch[1] : text);
+                        } else {
+                          const titleMatch = text.match(/^#\s+(.+)$/m);
+                          if (titleMatch && !title) setTitle(titleMatch[1]);
+                          const body = text.replace(/^#\s+.+$/m, "").trim();
+                          const html = marked.parse(body, { async: false }) as string;
+                          editor?.commands.setContent(html);
+                        }
                       };
                       reader.readAsText(file);
                       e.target.value = "";
@@ -326,11 +355,49 @@ export default function NewPostPage() {
                 </label>
               </div>
             )}
-            {editor ? (
+            {/* Preview toggle - admin-only, content from Tiptap editor (trusted) */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => setShowPreview(false)}
+                className={`px-4 py-2 text-sm transition-colors cursor-pointer ${!showPreview ? "text-primary-light border-b-2 border-primary" : "text-muted hover:text-foreground"}`}
+              >
+                编辑
+              </button>
+              <button
+                onClick={() => setShowPreview(true)}
+                className={`px-4 py-2 text-sm transition-colors cursor-pointer flex items-center gap-1 ${showPreview ? "text-primary-light border-b-2 border-primary" : "text-muted hover:text-foreground"}`}
+              >
+                <Eye className="w-3.5 h-3.5" /> 预览
+              </button>
+            </div>
+            {showPreview ? (
+              <div className="prose max-w-none px-6 py-4 min-h-[400px] text-foreground/80
+                [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-6 [&_h2]:mb-3
+                [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-4 [&_h3]:mb-2
+                [&_p]:leading-relaxed [&_p]:mb-3
+                [&_pre]:bg-surface [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:overflow-x-auto
+                [&_code]:font-mono [&_code]:text-accent-light [&_code]:text-sm
+                [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6
+                [&_a]:text-primary-light [&_a]:underline
+                [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic
+                [&_table]:w-full [&_table]:border-collapse
+                [&_th]:bg-surface [&_th]:px-3 [&_th]:py-2 [&_th]:border [&_th]:border-border [&_th]:text-left [&_th]:text-sm
+                [&_td]:px-3 [&_td]:py-2 [&_td]:border [&_td]:border-border [&_td]:text-sm
+                [&_img]:rounded-xl [&_img]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "<p class='text-muted'>暂无内容</p>" }}
+              />
+            ) : editor ? (
               <EditorContent editor={editor} />
             ) : (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            )}
+            {/* Word count bar */}
+            {editor && (
+              <div className="flex items-center justify-between px-4 py-2 border-t border-border text-xs text-muted">
+                <span>{editor.storage.characterCount?.characters?.() ?? editor.getText().length} 字符</span>
+                <span>约 {Math.max(1, Math.ceil((editor.getText().length) / 400))} 分钟阅读</span>
               </div>
             )}
           </div>
@@ -382,10 +449,63 @@ export default function NewPostPage() {
           {/* Cover image */}
           <div className="glass rounded-xl p-5">
             <h3 className="font-semibold text-foreground mb-3">封面图</h3>
-            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors">
-              <Upload className="w-6 h-6 mx-auto text-muted mb-2" />
-              <p className="text-xs text-muted">点击或拖拽上传封面图</p>
-            </div>
+            {coverImage ? (
+              <div className="relative group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={coverImage} alt="封面图" className="w-full rounded-lg object-cover max-h-40" />
+                <button
+                  onClick={() => setCoverImage("")}
+                  className="absolute top-2 right-2 p-1 bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  <Loader2 className="w-3 h-3" style={{ display: "none" }} />
+                  &times;
+                </button>
+              </div>
+            ) : (
+              <label className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors block">
+                {uploadingCover ? (
+                  <Loader2 className="w-6 h-6 mx-auto text-primary mb-2 animate-spin" />
+                ) : (
+                  <Upload className="w-6 h-6 mx-auto text-muted mb-2" />
+                )}
+                <p className="text-xs text-muted">{uploadingCover ? "上传中..." : "点击上传封面图"}</p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingCover}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploadingCover(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      const res = await fetch("/api/admin/media", { method: "POST", body: formData });
+                      if (res.ok) {
+                        const media = await res.json();
+                        setCoverImage(media.url);
+                      } else {
+                        setError("封面图上传失败");
+                      }
+                    } catch {
+                      setError("封面图上传失败");
+                    }
+                    setUploadingCover(false);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+            {!coverImage && (
+              <input
+                type="text"
+                placeholder="或粘贴图片 URL"
+                className="w-full mt-2 px-3 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary text-xs"
+                onBlur={(e) => { if (e.target.value.trim()) setCoverImage(e.target.value.trim()); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; if (input.value.trim()) setCoverImage(input.value.trim()); } }}
+              />
+            )}
           </div>
 
           {/* WeChat lock */}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { prisma } from "@/lib/prisma";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,42 +15,61 @@ const geistMono = Geist_Mono({
 
 const siteUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "TechBlog - 探索技术的无限可能",
-    template: "%s | TechBlog",
-  },
-  description:
-    "专注 DBA、SRE、AI、大数据、Python、Golang、前端等技术领域的深度内容分享",
-  keywords: [
-    "DBA", "SRE", "DevOps", "Kubernetes", "AI", "大数据", "Python", "Golang",
-    "技术博客", "云原生", "数据库", "运维",
-  ],
-  openGraph: {
-    type: "website",
-    locale: "zh_CN",
-    siteName: "TechBlog",
-    title: "TechBlog - 探索技术的无限可能",
-    description: "专注 DBA、SRE、AI、大数据、Python、Golang、前端等技术领域的深度内容分享",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+async function getSiteConfig() {
+  try {
+    const configs = await prisma.siteConfig.findMany();
+    const map: Record<string, string> = {};
+    for (const c of configs) map[c.key] = c.value;
+    return map;
+  } catch {
+    return {};
+  }
+}
 
-export default function RootLayout({
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await getSiteConfig();
+  const siteName = config.site_name || "TechBlog";
+  const siteDesc = config.site_description || "探索技术的无限可能";
+
+  return {
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: `${siteName} - ${siteDesc}`,
+      template: `%s | ${siteName}`,
+    },
+    description: siteDesc,
+    keywords: [
+      "DBA", "SRE", "DevOps", "Kubernetes", "AI", "大数据", "Python", "Golang",
+      "技术博客", "云原生", "数据库", "运维",
+    ],
+    openGraph: {
+      type: "website",
+      locale: "zh_CN",
+      siteName,
+      title: `${siteName} - ${siteDesc}`,
+      description: siteDesc,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const config = await getSiteConfig();
+  const themeClass = config.theme_name || "";
+
   return (
     <html
       lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${themeClass}`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body suppressHydrationWarning className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

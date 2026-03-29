@@ -14,8 +14,8 @@ import {
   Globe,
   Terminal,
   ArrowRight,
-  Loader2,
 } from "lucide-react";
+import Link from "next/link";
 
 const techCategories = [
   { name: "DBA", slug: "dba", icon: Database, color: "from-orange-500 to-red-500" },
@@ -138,12 +138,12 @@ export default function HomePage() {
       <section className="py-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold text-foreground">最新文章</h3>
-          <a
+          <Link
             href="/blog"
             className="text-sm text-primary-light hover:text-primary flex items-center gap-1 cursor-pointer"
           >
             查看全部 <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
         {loading ? (
           <PostGridSkeleton count={6} />

@@ -11,6 +11,8 @@ import {
   LogOut,
   Menu,
   X,
+  Link2,
+  FolderTree,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -19,6 +21,8 @@ const sidebarLinks = [
   { href: "/posts", label: "文章管理", icon: FileText },
   { href: "/comments", label: "评论管理", icon: MessageSquare },
   { href: "/media", label: "媒体库", icon: Image },
+  { href: "/categories", label: "分类管理", icon: FolderTree },
+  { href: "/friend-links", label: "友情链接", icon: Link2 },
   { href: "/settings", label: "设置", icon: Settings },
 ];
 
