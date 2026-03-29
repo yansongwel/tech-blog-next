@@ -42,6 +42,9 @@ export default function Navbar() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [expandedMobile, setExpandedMobile] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [theme, setTheme] = useState(() =>
+    typeof document !== "undefined" ? document.documentElement.className || "theme-dark-indigo" : "theme-dark-indigo"
+  );
   const dropdownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,6 +65,13 @@ export default function Navbar() {
       .then((data) => { if (Array.isArray(data)) setCategories(data); })
       .catch(() => {});
   }, []);
+
+  // Sync theme state when config loads from API
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (config.theme_name) setTheme(config.theme_name);
+  }, [config.theme_name]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close overlays on route change
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -258,8 +268,8 @@ export default function Navbar() {
               {/* Theme toggle */}
               <button
                 onClick={() => {
-                  const isLight = config.theme_name === "theme-light";
-                  const next = isLight ? "theme-dark-indigo" : "theme-light";
+                  const next = theme === "theme-light" ? "theme-dark-indigo" : "theme-light";
+                  setTheme(next);
                   document.documentElement.className = next;
                   fetch("/api/admin/settings", {
                     method: "PUT",
@@ -270,7 +280,7 @@ export default function Navbar() {
                 className="hidden sm:flex p-2 text-foreground/50 hover:text-foreground hover:bg-white/5 rounded-lg transition-all cursor-pointer"
                 aria-label="切换主题"
               >
-                {config.theme_name === "theme-light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                {theme === "theme-light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
               </button>
               {/* RSS */}
               <a
