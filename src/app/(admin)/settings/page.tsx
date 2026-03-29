@@ -1,7 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Loader2, Check } from "lucide-react";
+import { Save, Loader2, Check, Monitor, MousePointer, Lock, Eye, EyeOff } from "lucide-react";
+import { useToast } from "@/components/admin/Toast";
+
+const LOADING_TEMPLATES = [
+  { key: "matrix", label: "黑客帝国", description: "经典矩阵代码雨", colors: ["#6366f1", "#06b6d4"] },
+  { key: "cyber", label: "赛博网格", description: "六边形脉冲波纹", colors: ["#6366f1", "#818cf8"] },
+  { key: "terminal", label: "终端启动", description: "模拟系统引导日志", colors: ["#22c55e", "#06b6d4"] },
+  { key: "radar", label: "雷达扫描", description: "环形雷达探测动画", colors: ["#06b6d4", "#6366f1"] },
+  { key: "glitch", label: "故障艺术", description: "数字噪点和扫描线", colors: ["#f43f5e", "#6366f1"] },
+];
+
+const MOUSE_SKINS = [
+  { key: "indigo", label: "靛蓝星轨", colors: ["#6366f1", "#06b6d4"] },
+  { key: "emerald", label: "翡翠流光", colors: ["#10b981", "#34d399"] },
+  { key: "flame", label: "烈焰追踪", colors: ["#f97316", "#ef4444"] },
+  { key: "starlight", label: "星光金尘", colors: ["#fbbf24", "#f59e0b"] },
+  { key: "neon", label: "霓虹幻彩", colors: ["#a855f7", "#ec4899"] },
+  { key: "aurora", label: "北极极光", colors: ["#22d3ee", "#10b981"] },
+  { key: "sakura", label: "樱花飞舞", colors: ["#f472b6", "#fbcfe8"] },
+  { key: "ocean", label: "深海之光", colors: ["#0ea5e9", "#38bdf8"] },
+  { key: "cyber", label: "赛博朋克", colors: ["#00ff88", "#00c8ff"] },
+  { key: "galaxy", label: "银河漫游", colors: ["#8b5cf6", "#d946ef"] },
+];
 
 const THEMES = [
   { key: "theme-dark-indigo", label: "暗夜靛蓝", colors: ["#6366f1", "#06b6d4", "#0a0a0f"] },
@@ -64,6 +86,10 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", new: "", confirm: "" });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -82,11 +108,35 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
-      if (res.ok) setSaved(true);
-      else alert("保存失败，请重试");
-    } catch { alert("网络错误，请重试"); }
+      if (res.ok) {
+        setSaved(true);
+        toast.success("保存成功");
+      } else toast.error("保存失败，请重试");
+    } catch { toast.error("网络错误，请重试"); }
     setSaving(false);
     setTimeout(() => setSaved(false), 3000);
+  };
+
+  const handlePasswordChange = async () => {
+    if (!pwForm.current || !pwForm.new) { toast.error("请填写当前密码和新密码"); return; }
+    if (pwForm.new.length < 6) { toast.error("新密码至少需要 6 个字符"); return; }
+    if (pwForm.new !== pwForm.confirm) { toast.error("两次输入的新密码不一致"); return; }
+    setPwSaving(true);
+    try {
+      const res = await fetch("/api/admin/password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.new }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("密码修改成功");
+        setPwForm({ current: "", new: "", confirm: "" });
+      } else {
+        toast.error(data.error || "修改失败");
+      }
+    } catch { toast.error("网络错误"); }
+    setPwSaving(false);
   };
 
   const updateField = (key: string, value: string) => {
@@ -156,6 +206,129 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Loading Template Selector */}
+      <div className="glass rounded-xl p-6 mb-6">
+        <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <Monitor className="w-5 h-5 text-primary-light" /> 加载动画模板
+        </h2>
+        <p className="text-sm text-muted mb-4">首次访问时的加载动画样式（含访客 IP 欢迎信息）。加载完成后显示欢迎按钮，用户点击进入。</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {LOADING_TEMPLATES.map((tpl) => {
+            const isActive = (settings.loading_template || "matrix") === tpl.key;
+            return (
+              <button
+                key={tpl.key}
+                onClick={() => updateField("loading_template", tpl.key)}
+                className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer text-left ${
+                  isActive
+                    ? "border-primary shadow-lg shadow-primary/20 scale-105"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="flex gap-1 mb-2 justify-center">
+                  {tpl.colors.map((color, i) => (
+                    <div
+                      key={i}
+                      className="w-5 h-5 rounded-full border border-white/10"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-center text-foreground font-medium">{tpl.label}</p>
+                <p className="text-[10px] text-center text-muted mt-0.5">{tpl.description}</p>
+                {isActive && (
+                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Loading Behavior Control */}
+      <div className="glass rounded-xl p-6 mb-6">
+        <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <Monitor className="w-5 h-5 text-primary-light" /> 加载页行为
+        </h2>
+        <p className="text-sm text-muted mb-4">控制加载完成后是否自动进入首页</p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-surface/50 rounded-lg border border-border">
+            <div>
+              <p className="text-sm font-medium text-foreground">自动进入</p>
+              <p className="text-xs text-muted mt-0.5">开启后，加载完成将在指定秒数后自动进入首页</p>
+            </div>
+            <button
+              onClick={() => updateField("loading_auto_enter", settings.loading_auto_enter === "true" ? "false" : "true")}
+              className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${
+                settings.loading_auto_enter === "true" ? "bg-primary" : "bg-border"
+              }`}
+            >
+              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                settings.loading_auto_enter === "true" ? "translate-x-6" : ""
+              }`} />
+            </button>
+          </div>
+          {settings.loading_auto_enter === "true" && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                自动进入延迟（秒）
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="60"
+                value={settings.loading_duration || "10"}
+                onChange={(e) => updateField("loading_duration", e.target.value)}
+                className="w-32 px-4 py-2.5 bg-surface border border-border rounded-lg text-foreground focus:outline-none focus:border-primary transition-colors"
+              />
+              <p className="text-xs text-muted mt-1">建议 5-15 秒，加载完成后开始倒计时</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mouse Skin Selector */}
+      <div className="glass rounded-xl p-6 mb-6">
+        <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <MousePointer className="w-5 h-5 text-primary-light" /> 鼠标特效皮肤
+        </h2>
+        <p className="text-sm text-muted mb-4">自定义鼠标粒子轨迹和光标颜色</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {MOUSE_SKINS.map((ms) => {
+            const isActive = (settings.mouse_skin || "indigo") === ms.key;
+            return (
+              <button
+                key={ms.key}
+                onClick={() => updateField("mouse_skin", ms.key)}
+                className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                  isActive
+                    ? "border-primary shadow-lg shadow-primary/20 scale-105"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="flex gap-1 mb-2 justify-center">
+                  {ms.colors.map((color, i) => (
+                    <div
+                      key={i}
+                      className="w-8 h-8 rounded-full border border-white/10"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-center text-foreground font-medium">{ms.label}</p>
+                {isActive && (
+                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Settings Sections */}
       {settingsSections.map((section) => (
         <div key={section.title} className="glass rounded-xl p-6 mb-6">
@@ -189,6 +362,85 @@ export default function SettingsPage() {
           </div>
         </div>
       ))}
+
+      {/* AI Character Toggle */}
+      <div className="glass rounded-xl p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground mb-1">AI 悬浮角色</h2>
+            <p className="text-sm text-muted">桌面端右下角的交互式全息 AI 角色（移动端自动隐藏）</p>
+          </div>
+          <button
+            onClick={() => updateField("dancing_character", settings.dancing_character === "off" ? "on" : "off")}
+            className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer ${
+              settings.dancing_character === "off" ? "bg-border" : "bg-primary"
+            }`}
+          >
+            <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+              settings.dancing_character === "off" ? "left-0.5" : "left-[1.375rem]"
+            }`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Password Change */}
+      <div className="glass rounded-xl p-6 mb-6">
+        <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <Lock className="w-5 h-5 text-primary-light" /> 修改密码
+        </h2>
+        <p className="text-sm text-muted mb-4">修改管理员登录密码</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">当前密码</label>
+            <div className="relative">
+              <input
+                type={showPw ? "text" : "password"}
+                value={pwForm.current}
+                onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
+                placeholder="输入当前密码"
+                className="w-full px-4 py-2.5 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground cursor-pointer"
+              >
+                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">新密码</label>
+            <input
+              type={showPw ? "text" : "password"}
+              value={pwForm.new}
+              onChange={(e) => setPwForm({ ...pwForm, new: e.target.value })}
+              placeholder="至少 6 个字符"
+              className="w-full px-4 py-2.5 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">确认新密码</label>
+            <input
+              type={showPw ? "text" : "password"}
+              value={pwForm.confirm}
+              onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+              placeholder="再次输入新密码"
+              className="w-full px-4 py-2.5 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={handlePasswordChange}
+            disabled={pwSaving || !pwForm.current || !pwForm.new || !pwForm.confirm}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-light disabled:opacity-50 text-white rounded-lg text-sm transition-colors cursor-pointer"
+          >
+            {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+            修改密码
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

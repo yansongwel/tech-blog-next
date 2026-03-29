@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
-// Test images from picsum.photos (free, no auth needed)
-const photos = Array.from({ length: 30 }, (_, i) => ({
+// Fallback images when media library is empty
+const fallbackPhotos = Array.from({ length: 30 }, (_, i) => ({
   id: `photo-${i}`,
   url: `https://picsum.photos/seed/techblog${i}/400/300`,
   label: `Photo ${i + 1}`,
@@ -95,7 +95,7 @@ function EnergyRing({
   );
 }
 
-function Scene({ layout }: { layout: Layout }) {
+function Scene({ layout, photos }: { layout: Layout; photos: { id: string; url: string; label: string }[] }) {
   const groupRef = useRef<THREE.Group>(null);
 
   const positions = useMemo(() => {
@@ -155,7 +155,7 @@ function Scene({ layout }: { layout: Layout }) {
         }
       }
     });
-  }, [layout]);
+  }, [layout, photos]);
 
   useFrame((state) => {
     if (!groupRef.current) return;
@@ -190,6 +190,29 @@ function Scene({ layout }: { layout: Layout }) {
 
 export default function AlbumPage() {
   const [layout, setLayout] = useState<Layout>("sphere");
+  const [photos, setPhotos] = useState(fallbackPhotos);
+
+  // Load images from media library, fallback to picsum
+  useEffect(() => {
+    fetch("/api/admin/media")
+      .then((r) => r.json())
+      .then((data) => {
+        const mediaItems = data.media || [];
+        if (mediaItems.length >= 6) {
+          // Use media library images (pad to 30 if needed)
+          const mapped = mediaItems.map((m: { id: string; url: string; filename: string }) => ({
+            id: m.id,
+            url: m.url,
+            label: m.filename,
+          }));
+          // Repeat to fill 30 slots for better 3D effect
+          const filled = [];
+          for (let i = 0; i < 30; i++) filled.push(mapped[i % mapped.length]);
+          setPhotos(filled);
+        }
+      })
+      .catch(() => {}); // Keep fallback
+  }, []);
 
   const layouts: { key: Layout; label: string }[] = [
     { key: "sphere", label: "星球" },
@@ -224,7 +247,7 @@ export default function AlbumPage() {
           <ambientLight intensity={0.4} />
           <directionalLight position={[5, 5, 5]} intensity={0.6} />
           <fog attach="fog" args={["#0a0a0f", 15, 30]} />
-          <Scene layout={layout} />
+          <Scene layout={layout} photos={photos} />
           <OrbitControls
             enableZoom={true}
             enablePan={false}

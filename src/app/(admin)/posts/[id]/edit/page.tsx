@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Upload, Loader2, FileUp, Eye } from "lucide-react";
 import { marked } from "marked";
+import { importHtmlDocument, importMarkdownDocument } from "@/lib/importDocument";
 import Link from "next/link";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -212,14 +213,13 @@ export default function EditPostPage() {
                         const text = reader.result as string;
                         const ext = file.name.split(".").pop()?.toLowerCase();
                         if (ext === "html" || ext === "htm") {
-                          const bodyMatch = text.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-                          editor?.commands.setContent(bodyMatch ? bodyMatch[1] : text);
+                          const result = importHtmlDocument(text);
+                          if (result.title && !title) setTitle(result.title);
+                          editor?.commands.setContent(result.content);
                         } else {
-                          const titleMatch = text.match(/^#\s+(.+)$/m);
-                          if (titleMatch && !title) setTitle(titleMatch[1]);
-                          const body = text.replace(/^#\s+.+$/m, "").trim();
-                          const html = marked.parse(body, { async: false }) as string;
-                          editor?.commands.setContent(html);
+                          const result = importMarkdownDocument(text, (input) => marked.parse(input, { async: false }) as string);
+                          if (result.title && !title) setTitle(result.title);
+                          editor?.commands.setContent(result.content);
                         }
                       };
                       reader.readAsText(file);
@@ -235,7 +235,22 @@ export default function EditPostPage() {
               <button onClick={() => setShowPreview(true)} className={`px-4 py-2 text-sm transition-colors cursor-pointer flex items-center gap-1 ${showPreview ? "text-primary-light border-b-2 border-primary" : "text-muted hover:text-foreground"}`}><Eye className="w-3.5 h-3.5" /> 预览</button>
             </div>
             {showPreview ? (
-              <div className="prose max-w-none px-6 py-4 min-h-[400px] text-foreground/80 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-4 [&_h3]:mb-2 [&_p]:leading-relaxed [&_p]:mb-3 [&_pre]:bg-surface [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:overflow-x-auto [&_code]:font-mono [&_code]:text-accent-light [&_code]:text-sm [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_a]:text-primary-light [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_table]:w-full [&_table]:border-collapse [&_th]:bg-surface [&_th]:px-3 [&_th]:py-2 [&_th]:border [&_th]:border-border [&_th]:text-left [&_th]:text-sm [&_td]:px-3 [&_td]:py-2 [&_td]:border [&_td]:border-border [&_td]:text-sm [&_img]:rounded-xl [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "" }} />
+              <div className="prose max-w-none px-6 py-4 min-h-[400px] text-foreground/90
+                [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-10 [&_h1]:mb-4
+                [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:pb-2 [&_h2]:border-b [&_h2]:border-border/50
+                [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-6 [&_h3]:mb-3
+                [&_p]:leading-[1.8] [&_p]:mb-4
+                [&_pre]:bg-surface [&_pre]:border [&_pre]:border-border [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:mb-4
+                [&_code]:font-mono [&_code]:text-sm
+                [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4
+                [&_li]:mb-2 [&_li]:leading-[1.8]
+                [&_a]:text-primary-light [&_a]:underline
+                [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-5 [&_blockquote]:py-3 [&_blockquote]:my-6 [&_blockquote]:not-italic [&_blockquote]:text-foreground/80 [&_blockquote]:bg-primary/5 [&_blockquote]:rounded-r-xl
+                [&_table]:w-full [&_table]:border-collapse [&_table]:mb-6 [&_table]:text-sm [&_table]:rounded-xl
+                [&_th]:bg-surface [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_th]:text-foreground [&_th]:text-left [&_th]:font-semibold
+                [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border [&_td]:text-foreground/90
+                [&_img]:rounded-xl [&_img]:max-w-full [&_img]:mx-auto [&_img]:my-6
+                [&_hr]:border-border [&_hr]:my-8" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "" }} />
             ) : editor ? (
               <EditorContent editor={editor} />
             ) : (

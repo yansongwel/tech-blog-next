@@ -1,30 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
+import { listApprovedComments, createComment } from "@/lib/services/commentService";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/comments?postId=xxx
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const postId = searchParams.get("postId");
-
+    const postId = new URL(request.url).searchParams.get("postId");
     if (!postId) {
       return NextResponse.json({ error: "postId required" }, { status: 400 });
     }
 
-    const comments = await prisma.comment.findMany({
-      where: { postId, approved: true, parentId: null },
-      include: {
-        replies: {
-          where: { approved: true },
-          orderBy: { createdAt: "asc" },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
+    const comments = await listApprovedComments(postId);
     return NextResponse.json(comments);
   } catch (err) {
     console.error("GET /api/comments error:", err);
@@ -42,24 +30,29 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-
     if (!body.content || !body.author || !body.email || !body.postId) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    const comment = await prisma.comment.create({
-      data: {
-        content: body.content.slice(0, 2000),
-        author: body.author.slice(0, 50),
-        email: body.email.slice(0, 100),
-        website: body.website?.slice(0, 200) || null,
-        postId: body.postId,
-        parentId: body.parentId || null,
-      },
+    const comment = await createComment({
+      content: body.content,
+      author: body.author,
+      email: body.email,
+      website: body.website,
+      postId: body.postId,
+      parentId: body.parentId,
     });
 
     return NextResponse.json(comment, { status: 201 });
   } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === "INVALID_EMAIL") {
+        return NextResponse.json({ error: "邮箱格式不正确" }, { status: 400 });
+      }
+      if (err.message === "POST_NOT_FOUND") {
+        return NextResponse.json({ error: "文章不存在" }, { status: 400 });
+      }
+    }
     console.error("POST /api/comments error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

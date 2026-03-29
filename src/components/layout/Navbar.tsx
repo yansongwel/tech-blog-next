@@ -1,16 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu as MenuIcon, X, Search, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Menu as MenuIcon,
+  X,
+  Search,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  ArrowRight,
+  Command,
+  Sparkles,
+} from "lucide-react";
 import { Dialog, DialogPanel, Transition, TransitionChild } from "@headlessui/react";
 import { useSiteConfig } from "@/lib/useSiteConfig";
+import { getCategoryIcon, getCategoryColor, getCategoryDesc } from "@/lib/categoryUtils";
 
 interface Category {
   name: string;
   slug: string;
-  children?: { name: string; slug: string }[];
+  icon?: string | null;
+  color?: string | null;
+  description?: string | null;
+  children?: { name: string; slug: string; icon?: string | null; color?: string | null }[];
 }
 
 export default function Navbar() {
@@ -18,16 +32,23 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
+  const [readingProgress, setReadingProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [expandedMobile, setExpandedMobile] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const dropdownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Scroll & reading progress
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      setReadingProgress(docHeight > 0 ? Math.min(window.scrollY / docHeight, 1) : 0);
+    };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -39,51 +60,67 @@ export default function Navbar() {
       .catch(() => {});
   }, []);
 
-  // Close drawer on route change
-  useEffect(() => { setDrawerOpen(false); setSearchOpen(false); }, [pathname]);
+  // Close overlays on route change
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setDrawerOpen(false); setCmdOpen(false); }, [pathname]);
 
-  // Keyboard: Escape closes dropdown/search
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setActiveDropdown(null);
-        setSearchOpen(false);
+        setCmdOpen(false);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCmdOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  const openDropdown = (slug: string) => {
+  // Focus search input when command palette opens
+  useEffect(() => {
+    if (cmdOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  }, [cmdOpen]);
+
+  const openDropdown = useCallback((slug: string) => {
     if (dropdownTimer.current) clearTimeout(dropdownTimer.current);
     setActiveDropdown(slug);
-  };
-  const closeDropdown = () => {
-    dropdownTimer.current = setTimeout(() => setActiveDropdown(null), 150);
-  };
+  }, []);
+
+  const closeDropdown = useCallback(() => {
+    dropdownTimer.current = setTimeout(() => setActiveDropdown(null), 200);
+  }, []);
+
+  const handleSearch = useCallback((query: string) => {
+    if (query.trim()) {
+      router.push(`/blog?search=${encodeURIComponent(query.trim())}`);
+      setCmdOpen(false);
+      setSearchQuery("");
+    }
+  }, [router]);
 
   const siteName = config.site_name || "TechBlog";
   const siteLogo = config.site_logo || siteName[0];
 
-  const navLinks = [
-    { href: "/", label: "首页" },
-    ...categories.map((cat) => ({
-      href: `/categories/${cat.slug}`,
-      label: cat.name,
-      children: cat.children,
-      slug: cat.slug,
-    })),
-    { href: "/blog", label: "博客" },
-    { href: "/album", label: "相册" },
-    { href: "/about", label: "关于" },
+  const staticLinks = [
+    { href: "/blog", label: "博客", icon: FileText },
+    { href: "/album", label: "相册", icon: Sparkles },
+    { href: "/about", label: "关于", icon: null },
   ];
+
+  const isArticlePage = pathname.startsWith("/blog/") && pathname !== "/blog";
 
   return (
     <>
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled
-            ? "bg-[var(--glass-bg,rgba(26,26,46,0.85))] backdrop-blur-xl shadow-lg border-b border-border/50"
+            ? "glass-strong shadow-lg shadow-black/10"
             : "bg-transparent"
         }`}
       >
@@ -91,83 +128,137 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 group cursor-pointer shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm group-hover:scale-110 transition-transform">
+              <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-primary/30 transition-all duration-300" suppressHydrationWarning>
                 {siteLogo}
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-accent opacity-0 group-hover:opacity-100 blur-md transition-opacity duration-300 -z-10" />
               </div>
-              <span className="text-xl font-bold gradient-text hidden sm:block">
+              <span className="text-xl font-bold gradient-text hidden sm:block" suppressHydrationWarning>
                 {siteName}
               </span>
             </Link>
 
             {/* Desktop nav */}
             <div className="hidden lg:flex items-center gap-0.5">
-              {navLinks.map((link) => {
-                const hasChildren = "children" in link && link.children?.length;
-                const slug = "slug" in link ? link.slug : undefined;
+              {/* Home link */}
+              <Link
+                href="/"
+                className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 cursor-pointer ${
+                  pathname === "/"
+                    ? "text-primary-light bg-primary/10"
+                    : "text-foreground/70 hover:text-foreground hover:bg-white/5"
+                }`}
+              >
+                首页
+              </Link>
 
-                if (!hasChildren) {
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={`px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer ${
-                        pathname === link.href
-                          ? "text-primary-light bg-primary/10"
-                          : "text-foreground/70 hover:text-foreground hover:bg-white/5"
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  );
-                }
+              {/* Category dropdowns */}
+              {categories.map((cat) => {
+                const hasChildren = cat.children && cat.children.length > 0;
+                const IconComp = getCategoryIcon(cat);
+                const isActive = pathname.startsWith(`/categories/${cat.slug}`);
 
                 return (
                   <div
-                    key={link.href}
+                    key={cat.slug}
                     className="relative"
-                    onMouseEnter={() => openDropdown(slug!)}
+                    onMouseEnter={() => openDropdown(cat.slug)}
                     onMouseLeave={closeDropdown}
                   >
                     <Link
-                      href={link.href}
-                      className={`px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
-                        pathname.startsWith(`/categories/${slug}`)
+                      href={`/categories/${cat.slug}`}
+                      aria-expanded={activeDropdown === cat.slug}
+                      aria-haspopup="true"
+                      className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 flex items-center gap-1 cursor-pointer ${
+                        isActive
                           ? "text-primary-light bg-primary/10"
                           : "text-foreground/70 hover:text-foreground hover:bg-white/5"
                       }`}
                     >
-                      {link.label}
-                      <ChevronDown className={`w-3 h-3 transition-transform ${activeDropdown === slug ? "rotate-180" : ""}`} />
+                      {cat.name}
+                      {hasChildren && (
+                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${activeDropdown === cat.slug ? "rotate-180" : ""}`} />
+                      )}
                     </Link>
-                    {/* Dropdown with padding bridge (pt-2 fills the gap so hover doesn't break) */}
-                    {activeDropdown === slug && (
-                      <div className="absolute top-full left-0 pt-2">
-                        <div className="py-1.5 bg-[var(--glass-bg,rgba(26,26,46,0.95))] backdrop-blur-xl rounded-xl shadow-xl border border-border/50 min-w-[180px] animate-fade-in">
-                          {link.children!.map((child) => (
+
+                    {/* Mega Dropdown */}
+                    {activeDropdown === cat.slug && hasChildren && (
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3">
+                        <div className="mega-dropdown glass-strong rounded-2xl shadow-2xl shadow-black/20 p-2 min-w-[320px]">
+                          {/* Category header */}
+                          <div className="px-3 py-2.5 mb-1">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getCategoryColor(cat)} flex items-center justify-center`}>
+                                <IconComp className="w-4 h-4 text-white" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-semibold text-foreground">{cat.name}</div>
+                                <div className="text-xs text-muted">
+                                  {getCategoryDesc(cat)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mx-2 mb-1" />
+
+                          {/* Child categories */}
+                          {cat.children!.map((child) => (
                             <Link
                               key={child.slug}
                               href={`/categories/${child.slug}`}
-                              className="block px-4 py-2.5 text-sm text-foreground/70 hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer"
+                              className="mega-dropdown-item flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer group/item"
                             >
-                              {child.name}
+                              <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover/item:bg-primary group-hover/item:shadow-sm group-hover/item:shadow-primary/50 transition-all" />
+                              <span className="text-sm text-foreground/70 group-hover/item:text-foreground transition-colors">
+                                {child.name}
+                              </span>
+                              <ArrowRight className="w-3 h-3 text-muted opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all ml-auto" />
                             </Link>
                           ))}
+
+                          {/* View all link */}
+                          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mx-2 mt-1 mb-1" />
+                          <Link
+                            href={`/categories/${cat.slug}`}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-primary-light hover:text-primary transition-colors cursor-pointer rounded-lg hover:bg-primary/5"
+                          >
+                            查看全部 {cat.name} 文章
+                            <ArrowRight className="w-3 h-3" />
+                          </Link>
                         </div>
                       </div>
                     )}
                   </div>
                 );
               })}
+
+              {/* Static links */}
+              {staticLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 cursor-pointer ${
+                    pathname === link.href
+                      ? "text-primary-light bg-primary/10"
+                      : "text-foreground/70 hover:text-foreground hover:bg-white/5"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
 
             {/* Right actions */}
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setSearchOpen(!searchOpen)}
-                className="p-2 text-foreground/60 hover:text-foreground hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-                aria-label="搜索"
+                onClick={() => setCmdOpen(true)}
+                className="flex items-center gap-2 px-2.5 py-1.5 text-foreground/50 hover:text-foreground hover:bg-white/5 rounded-lg transition-all cursor-pointer group"
+                aria-label="搜索 (Ctrl+K)"
               >
-                <Search className="w-5 h-5" />
+                <Search className="w-4 h-4 group-hover:text-primary-light transition-colors" />
+                <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] text-muted border border-border/60 rounded-md px-1.5 py-0.5 font-mono">
+                  <Command className="w-2.5 h-2.5" />K
+                </kbd>
               </button>
               <button
                 className="lg:hidden p-2 text-foreground/60 hover:text-foreground cursor-pointer"
@@ -180,40 +271,112 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Search bar */}
-        {searchOpen && (
-          <div className="absolute top-full left-0 right-0 bg-[var(--glass-bg,rgba(26,26,46,0.95))] backdrop-blur-xl border-b border-border/50 p-4 animate-fade-in">
-            <form
-              className="max-w-2xl mx-auto"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (searchQuery.trim()) {
-                  router.push(`/blog?search=${encodeURIComponent(searchQuery.trim())}`);
-                  setSearchOpen(false);
-                  setSearchQuery("");
-                }
-              }}
-            >
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                <input
-                  type="text"
-                  placeholder="搜索文章..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
-                  autoFocus
-                />
-              </div>
-            </form>
+        {/* Reading progress bar */}
+        {isArticlePage && readingProgress > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-border/20">
+            <div
+              className="reading-progress h-full"
+              style={{ transform: `scaleX(${readingProgress})` }}
+            />
           </div>
         )}
       </nav>
 
-      {/* Mobile drawer with Headless UI */}
+      {/* ===== Command Palette (Search) ===== */}
+      <Transition show={cmdOpen} as={Fragment}>
+        <Dialog onClose={() => { setCmdOpen(false); setSearchQuery(""); }} className="relative z-[70]">
+          <TransitionChild
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+          </TransitionChild>
+
+          <div className="fixed inset-0 flex items-start justify-center pt-[20vh] px-4">
+            <TransitionChild
+              as={Fragment}
+              enter="ease-out duration-200"
+              enterFrom="opacity-0 scale-95 translate-y-4"
+              enterTo="opacity-100 scale-100 translate-y-0"
+              leave="ease-in duration-150"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <DialogPanel className="w-full max-w-xl">
+                <div className="glass-strong rounded-2xl shadow-2xl shadow-primary/10 overflow-hidden">
+                  {/* Search input */}
+                  <form
+                    onSubmit={(e) => { e.preventDefault(); handleSearch(searchQuery); }}
+                    className="flex items-center gap-3 px-5 py-4 border-b border-border/30"
+                  >
+                    <Search className="w-5 h-5 text-primary-light shrink-0" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="搜索文章、分类、标签..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="flex-1 bg-transparent text-foreground text-base placeholder:text-muted/60 focus:outline-none"
+                    />
+                    <kbd className="text-[10px] text-muted border border-border/50 rounded px-1.5 py-0.5 font-mono">ESC</kbd>
+                  </form>
+
+                  {/* Quick links */}
+                  <div className="px-3 py-3 max-h-[40vh] overflow-y-auto">
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted uppercase tracking-wider">快速导航</div>
+                    {categories.slice(0, 5).map((cat) => {
+                      const IconComp = getCategoryIcon(cat);
+                      const color = getCategoryColor(cat);
+                      return (
+                        <button
+                          key={cat.slug}
+                          onClick={() => { router.push(`/categories/${cat.slug}`); setCmdOpen(false); }}
+                          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left hover:bg-white/5 transition-colors cursor-pointer group"
+                        >
+                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                            <IconComp className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <div className="text-sm text-foreground">{cat.name}</div>
+                            <div className="text-xs text-muted">{getCategoryDesc(cat)}</div>
+                          </div>
+                          <ArrowRight className="w-3.5 h-3.5 text-muted ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      );
+                    })}
+
+                    {searchQuery.trim() && (
+                      <>
+                        <div className="h-px bg-border/30 mx-2 my-2" />
+                        <button
+                          onClick={() => handleSearch(searchQuery)}
+                          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                            <Search className="w-4 h-4 text-primary-light" />
+                          </div>
+                          <div className="text-sm text-foreground">
+                            搜索 &ldquo;<span className="text-primary-light">{searchQuery}</span>&rdquo;
+                          </div>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* ===== Mobile drawer ===== */}
       <Transition show={drawerOpen} as={Fragment}>
         <Dialog onClose={() => setDrawerOpen(false)} className="relative z-[60] lg:hidden">
-          {/* Backdrop */}
           <TransitionChild
             as={Fragment}
             enter="ease-out duration-300"
@@ -226,7 +389,6 @@ export default function Navbar() {
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
           </TransitionChild>
 
-          {/* Panel */}
           <TransitionChild
             as={Fragment}
             enter="ease-out duration-300"
@@ -252,27 +414,14 @@ export default function Navbar() {
 
               {/* Drawer search */}
               <div className="p-4 border-b border-border">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (searchQuery.trim()) {
-                      router.push(`/blog?search=${encodeURIComponent(searchQuery.trim())}`);
-                      setDrawerOpen(false);
-                      setSearchQuery("");
-                    }
-                  }}
+                <button
+                  onClick={() => { setDrawerOpen(false); setTimeout(() => setCmdOpen(true), 150); }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 bg-background border border-border rounded-xl text-sm text-muted cursor-pointer hover:border-primary/30 transition-colors"
                 >
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                    <input
-                      type="text"
-                      placeholder="搜索文章..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-primary"
-                    />
-                  </div>
-                </form>
+                  <Search className="w-4 h-4" />
+                  <span>搜索文章...</span>
+                  <kbd className="ml-auto text-[10px] border border-border/50 rounded px-1 py-0.5 font-mono">⌘K</kbd>
+                </button>
               </div>
 
               {/* Drawer nav links */}
@@ -287,55 +436,68 @@ export default function Navbar() {
                   首页
                 </Link>
 
-                {categories.map((cat) => (
-                  <div key={cat.slug}>
-                    <div className="flex items-center">
-                      <Link
-                        href={`/categories/${cat.slug}`}
-                        onClick={() => setDrawerOpen(false)}
-                        className={`flex-1 px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors ${
-                          pathname === `/categories/${cat.slug}` ? "text-primary-light bg-primary/10" : "text-foreground/80 hover:text-foreground hover:bg-white/5"
-                        }`}
-                      >
-                        {cat.name}
-                      </Link>
-                      {cat.children?.length ? (
-                        <button
-                          onClick={() => setExpandedMobile(expandedMobile === cat.slug ? null : cat.slug)}
-                          className="p-2 text-muted hover:text-foreground cursor-pointer"
+                {categories.map((cat) => {
+                  const IconComp = getCategoryIcon(cat);
+                  const color = getCategoryColor(cat);
+
+                  return (
+                    <div key={cat.slug}>
+                      <div className="flex items-center">
+                        <Link
+                          href={`/categories/${cat.slug}`}
+                          onClick={() => setDrawerOpen(false)}
+                          className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors ${
+                            pathname === `/categories/${cat.slug}` ? "text-primary-light bg-primary/10" : "text-foreground/80 hover:text-foreground hover:bg-white/5"
+                          }`}
                         >
-                          <ChevronRight className={`w-4 h-4 transition-transform ${expandedMobile === cat.slug ? "rotate-90" : ""}`} />
-                        </button>
+                          <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${color} flex items-center justify-center`}>
+                            <IconComp className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          {cat.name}
+                        </Link>
+                        {cat.children?.length ? (
+                          <button
+                            onClick={() => setExpandedMobile(expandedMobile === cat.slug ? null : cat.slug)}
+                            className="p-2 text-muted hover:text-foreground cursor-pointer"
+                          >
+                            <ChevronRight className={`w-4 h-4 transition-transform ${expandedMobile === cat.slug ? "rotate-90" : ""}`} />
+                          </button>
+                        ) : null}
+                      </div>
+                      {cat.children?.length && expandedMobile === cat.slug ? (
+                        <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 animate-fade-in">
+                          {cat.children.map((child) => (
+                            <Link
+                              key={child.slug}
+                              href={`/categories/${child.slug}`}
+                              onClick={() => setDrawerOpen(false)}
+                              className={`block px-3 py-2 text-sm rounded-lg cursor-pointer transition-colors ${
+                                pathname === `/categories/${child.slug}` ? "text-primary-light" : "text-muted hover:text-foreground"
+                              }`}
+                            >
+                              {child.name}
+                            </Link>
+                          ))}
+                        </div>
                       ) : null}
                     </div>
-                    {cat.children?.length && expandedMobile === cat.slug ? (
-                      <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 animate-fade-in">
-                        {cat.children.map((child) => (
-                          <Link
-                            key={child.slug}
-                            href={`/categories/${child.slug}`}
-                            onClick={() => setDrawerOpen(false)}
-                            className={`block px-3 py-2 text-sm rounded-lg cursor-pointer transition-colors ${
-                              pathname === `/categories/${child.slug}` ? "text-primary-light" : "text-muted hover:text-foreground"
-                            }`}
-                          >
-                            {child.name}
-                          </Link>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
+                  );
+                })}
 
-                <Link href="/blog" onClick={() => setDrawerOpen(false)} className={`block px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors ${pathname === "/blog" ? "text-primary-light bg-primary/10" : "text-foreground/80 hover:text-foreground hover:bg-white/5"}`}>
-                  博客
-                </Link>
-                <Link href="/album" onClick={() => setDrawerOpen(false)} className={`block px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors ${pathname === "/album" ? "text-primary-light bg-primary/10" : "text-foreground/80 hover:text-foreground hover:bg-white/5"}`}>
-                  相册
-                </Link>
-                <Link href="/about" onClick={() => setDrawerOpen(false)} className={`block px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors ${pathname === "/about" ? "text-primary-light bg-primary/10" : "text-foreground/80 hover:text-foreground hover:bg-white/5"}`}>
-                  关于
-                </Link>
+                <div className="h-px bg-border/30 my-2" />
+
+                {staticLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setDrawerOpen(false)}
+                    className={`block px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors ${
+                      pathname === link.href ? "text-primary-light bg-primary/10" : "text-foreground/80 hover:text-foreground hover:bg-white/5"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </nav>
             </DialogPanel>
           </TransitionChild>

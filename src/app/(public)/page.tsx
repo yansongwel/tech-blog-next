@@ -1,31 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import HeroCarousel from "@/components/blog/HeroCarousel";
 import PostCard from "@/components/blog/PostCard";
 import { useSiteConfig } from "@/lib/useSiteConfig";
+import { useScrollReveal } from "@/lib/useScrollReveal";
 import { PostGridSkeleton } from "@/components/blog/Skeleton";
 import {
-  Database,
-  Server,
-  Brain,
-  BarChart3,
-  Code2,
-  Globe,
-  Terminal,
   ArrowRight,
+  MapPin,
+  Eye,
+  FileText,
+  Heart,
+  Users,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
+import { getCategoryIcon, getCategoryColor } from "@/lib/categoryUtils";
 
-const techCategories = [
-  { name: "DBA", slug: "dba", icon: Database, color: "from-orange-500 to-red-500" },
-  { name: "SRE", slug: "sre", icon: Server, color: "from-indigo-500 to-purple-500" },
-  { name: "AI", slug: "ai", icon: Brain, color: "from-cyan-500 to-blue-500" },
-  { name: "大数据", slug: "bigdata", icon: BarChart3, color: "from-green-500 to-emerald-500" },
-  { name: "Python", slug: "python", icon: Code2, color: "from-yellow-500 to-orange-500" },
-  { name: "Golang", slug: "golang", icon: Terminal, color: "from-sky-400 to-blue-500" },
-  { name: "前端", slug: "frontend", icon: Globe, color: "from-pink-500 to-rose-500" },
-];
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  icon?: string | null;
+  color?: string | null;
+  description?: string | null;
+  _count: { posts: number };
+}
 
 interface Post {
   id: string;
@@ -39,15 +40,74 @@ interface Post {
   publishedAt: string;
 }
 
+// ─── Animated counter ────────────────────────────
+
+function AnimatedNumber({ target, suffix = "" }: { target: number; suffix?: string }) {
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    if (target === 0) return;
+    const duration = 1500;
+    const steps = 40;
+    const increment = target / steps;
+    let current = 0;
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= target) {
+        setValue(target);
+        clearInterval(timer);
+      } else {
+        setValue(Math.floor(current));
+      }
+    }, duration / steps);
+    return () => clearInterval(timer);
+  }, [target]);
+
+  return (
+    <span className="font-bold text-3xl md:text-4xl gradient-text tabular-nums">
+      {value.toLocaleString()}{suffix}
+    </span>
+  );
+}
+
+// ─── Section heading ─────────────────────────────
+
+function SectionHeading({ title, action }: { title: string; action?: { label: string; href: string } }) {
+  return (
+    <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center gap-3">
+        <div className="w-1 h-7 rounded-full bg-gradient-to-b from-primary to-accent" />
+        <h3 className="text-2xl font-bold text-foreground">{title}</h3>
+      </div>
+      {action && (
+        <Link
+          href={action.href}
+          className="text-sm text-primary-light hover:text-primary flex items-center gap-1 cursor-pointer group"
+        >
+          {action.label}
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+// ─── Main page ───────────────────────────────────
+
 export default function HomePage() {
   const [typedText, setTypedText] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscribeEmail, setSubscribeEmail] = useState("");
   const [subscribeMsg, setSubscribeMsg] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [visitorInfo, setVisitorInfo] = useState<{ ip: string; city?: string; region?: string; country?: string } | null>(null);
+  const [siteStats, setSiteStats] = useState<{ totalViews: number; totalPosts: number; totalLikes: number; siteVisits: number } | null>(null);
   const config = useSiteConfig();
-  const fullText = config.site_description || "探索技术的无限可能";
+  const fullText = useMemo(() => config.site_description || "探索技术的无限可能", [config.site_description]);
+  const revealRef = useScrollReveal<HTMLDivElement>();
 
+  // Typing effect
   useEffect(() => {
     let i = 0;
     setTypedText("");
@@ -62,15 +122,28 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, [fullText]);
 
+  // Fetch all data in parallel
   useEffect(() => {
-    fetch("/api/posts?limit=6")
-      .then((res) => res.json())
-      .then((data) => setPosts(data.posts || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/posts?limit=7").then((r) => r.json()).catch(() => ({ posts: [] })),
+      fetch("/api/categories").then((r) => r.json()).catch(() => []),
+      fetch("/api/visitor-info").then((r) => r.json()).catch(() => null),
+      fetch("/api/site-stats").then((r) => r.json()).catch(() => null),
+    ]).then(([postsData, catsData, visitorData, statsData]) => {
+      setPosts(postsData.posts || []);
+      setCategories(Array.isArray(catsData) ? catsData : []);
+      if (visitorData?.ip) setVisitorInfo(visitorData);
+      if (statsData) setSiteStats({
+        totalViews: statsData.totalViews || 0,
+        totalPosts: statsData.totalPosts || 0,
+        totalLikes: statsData.totalLikes || 0,
+        siteVisits: statsData.siteVisits || 0,
+      });
+      setLoading(false);
+    });
   }, []);
 
-  const handleSubscribe = async (e: React.FormEvent) => {
+  const handleSubscribe = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setSubscribeMsg("");
     try {
@@ -89,98 +162,194 @@ export default function HomePage() {
     } catch {
       setSubscribeMsg("网络错误，请重试");
     }
-  };
+  }, [subscribeEmail]);
+
+  const featuredPost = posts[0];
+  const restPosts = posts.slice(1);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* Hero Section */}
+    <div ref={revealRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+      {/* ===== Hero Carousel ===== */}
       <section className="py-8">
         <HeroCarousel />
       </section>
 
-      {/* Intro / Typing effect */}
-      <section className="py-12 text-center">
-        <h2 className="text-4xl md:text-5xl font-bold mb-4">
+      {/* ===== Typing Hero + Visitor Welcome ===== */}
+      <section className="py-10 text-center scroll-reveal">
+        <h2 className="text-4xl md:text-5xl font-bold mb-4" suppressHydrationWarning>
           <span className="gradient-text">{typedText}</span>
           <span className="animate-pulse text-accent">|</span>
         </h2>
-        <p className="text-muted text-lg max-w-2xl mx-auto">
+        <p className="text-muted text-lg max-w-2xl mx-auto mb-6" suppressHydrationWarning>
           {config.site_subtitle || ""}
         </p>
-      </section>
 
-      {/* Category Cards */}
-      <section className="py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-foreground">技术分类</h3>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
-          {techCategories.map((cat) => (
-            <a
-              key={cat.slug}
-              href={`/categories/${cat.slug}`}
-              className="glass rounded-xl p-4 text-center card-hover group cursor-pointer"
-            >
-              <div
-                className={`w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br ${cat.color} flex items-center justify-center group-hover:scale-110 transition-transform`}
-              >
-                <cat.icon className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-sm font-medium text-foreground">
-                {cat.name}
+        {visitorInfo && (
+          <div className="inline-flex items-center gap-2.5 glass rounded-full px-5 py-2.5 text-sm animate-fade-in">
+            <MapPin className="w-4 h-4 text-accent-light" />
+            <span className="text-muted">
+              欢迎来自
+              <span className="text-foreground font-medium mx-1">
+                {[visitorInfo.city, visitorInfo.region, visitorInfo.country].filter(Boolean).join(", ") || "远方"}
               </span>
-            </a>
-          ))}
-        </div>
+              的访客
+            </span>
+            <span className="text-primary-light font-mono text-xs">{visitorInfo.ip}</span>
+          </div>
+        )}
       </section>
 
-      {/* Latest Posts */}
-      <section className="py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-foreground">最新文章</h3>
-          <Link
-            href="/blog"
-            className="text-sm text-primary-light hover:text-primary flex items-center gap-1 cursor-pointer"
-          >
-            查看全部 <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
+      {/* ===== Site Stats (animated numbers) ===== */}
+      {siteStats && (
+        <section className="py-6 scroll-reveal">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { icon: FileText, label: "文章", value: siteStats.totalPosts, color: "text-primary-light" },
+              { icon: Eye, label: "浏览", value: siteStats.totalViews, color: "text-accent-light" },
+              { icon: Heart, label: "获赞", value: siteStats.totalLikes, color: "text-pink-400" },
+              { icon: Users, label: "访问", value: siteStats.siteVisits, color: "text-emerald-400" },
+            ].map((stat) => (
+              <div key={stat.label} className="glass rounded-2xl p-5 text-center card-glow">
+                <stat.icon className={`w-6 h-6 mx-auto mb-2 ${stat.color}`} />
+                <AnimatedNumber target={stat.value} />
+                <div className="text-xs text-muted mt-1">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ===== Gradient divider ===== */}
+      <div className="section-divider my-4" />
+
+      {/* ===== Category Cards ===== */}
+      {categories.length > 0 && (
+        <section className="py-10 scroll-reveal">
+          <SectionHeading title="技术分类" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 stagger-children">
+            {categories.map((cat) => {
+              const IconComp = getCategoryIcon(cat);
+              const color = getCategoryColor(cat);
+              return (
+                <Link
+                  key={cat.slug}
+                  href={`/categories/${cat.slug}`}
+                  className="glass rounded-2xl p-5 text-center card-hover card-glow group cursor-pointer"
+                >
+                  <div
+                    className={`w-14 h-14 mx-auto mb-3 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center group-hover:scale-110 group-hover:shadow-lg transition-all duration-300`}
+                    style={{ boxShadow: "0 0 0 transparent" }}
+                  >
+                    <IconComp className="w-7 h-7 text-white" />
+                  </div>
+                  <span className="text-sm font-semibold text-foreground block">
+                    {cat.name}
+                  </span>
+                  <span className="text-xs text-muted mt-1.5 block">{cat._count.posts} 篇文章</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ===== Featured + Latest Posts ===== */}
+      <section className="py-10 scroll-reveal">
+        <SectionHeading title="最新文章" action={{ label: "查看全部", href: "/blog" }} />
+
         {loading ? (
           <PostGridSkeleton count={6} />
         ) : posts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
+          <div className="space-y-6">
+            {/* Featured post — large card */}
+            {featuredPost && (
+              <Link href={`/blog/${featuredPost.slug}`} className="block group cursor-pointer scroll-reveal">
+                <article className="glass rounded-2xl overflow-hidden card-hover card-glow">
+                  <div className="grid md:grid-cols-2 gap-0">
+                    <div className="relative h-64 md:h-80 overflow-hidden">
+                      {featuredPost.coverImage ? (
+                        <img
+                          src={featuredPost.coverImage}
+                          alt={featuredPost.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 group-hover:scale-105 transition-transform duration-700" />
+                      )}
+                      <div className="absolute top-4 left-4">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-primary/90 text-white rounded-lg backdrop-blur-sm">
+                          <Sparkles className="w-3 h-3" />
+                          推荐
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-6 md:p-8 flex flex-col justify-center">
+                      <span className="text-xs font-medium text-primary-light mb-3">{featuredPost.category.name}</span>
+                      <h3 className="text-2xl md:text-3xl font-bold text-foreground group-hover:text-primary-light transition-colors mb-3 line-clamp-2">
+                        {featuredPost.title}
+                      </h3>
+                      <p className="text-muted leading-relaxed mb-5 line-clamp-3">
+                        {featuredPost.excerpt}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-muted">
+                        <span className="flex items-center gap-1.5"><Eye className="w-4 h-4" />{featuredPost.viewCount}</span>
+                        <span className="flex items-center gap-1.5"><Heart className="w-4 h-4" />{featuredPost._count?.likes || 0}</span>
+                        <span className="ml-auto text-xs">{new Date(featuredPost.publishedAt).toLocaleDateString("zh-CN")}</span>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </Link>
+            )}
+
+            {/* Rest of posts — grid */}
+            {restPosts.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {restPosts.map((post, i) => (
+                  <div key={post.id} className={`scroll-reveal scroll-reveal-delay-${Math.min(i + 1, 3)}`}>
+                    <PostCard post={post} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="text-center py-20 text-muted">
+          <div className="text-center py-20 text-muted glass rounded-2xl">
+            <FileText className="w-12 h-12 mx-auto mb-4 text-muted/40" />
             <p className="text-lg">暂无文章</p>
             <p className="text-sm mt-1">快去后台发布第一篇文章吧</p>
           </div>
         )}
       </section>
 
-      {/* Personal Intro */}
-      <section className="py-12">
-        <div className="glass rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
-          <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl font-bold text-white shrink-0 animate-pulse-glow">
-            {config.author_avatar || "Dev"}
+      <div className="section-divider my-4" />
+
+      {/* ===== Author Intro ===== */}
+      <section className="py-12 scroll-reveal">
+        <div className="glass rounded-2xl card-glow p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
+          <div className="relative shrink-0">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl font-bold text-white animate-pulse-glow" suppressHydrationWarning>
+              {config.author_avatar || "Dev"}
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-emerald-500 border-4 border-surface flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-white" />
+            </div>
           </div>
           <div>
-            <h3 className="text-2xl font-bold text-foreground mb-3">
+            <h3 className="text-2xl font-bold text-foreground mb-3" suppressHydrationWarning>
               {config.author_name || "关于我"}
             </h3>
-            <p className="text-muted leading-relaxed mb-4">
+            <p className="text-muted leading-relaxed mb-5" suppressHydrationWarning>
               {config.author_bio || ""}
             </p>
             <div className="flex flex-wrap gap-2">
               {(config.author_skills || "").split(",").filter(Boolean).map((skill) => (
                 <span
                   key={skill}
-                  className="px-3 py-1 text-xs font-medium bg-primary/10 text-primary-light border border-primary/20 rounded-full"
+                  className="px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary-light border border-primary/20 rounded-full hover:bg-primary/20 transition-colors"
                 >
-                  {skill}
+                  {skill.trim()}
                 </span>
               ))}
             </div>
@@ -188,34 +357,45 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Subscribe CTA */}
-      <section className="py-12 mb-8">
-        <div className="glass rounded-2xl p-8 text-center">
-          <h3 className="text-2xl font-bold gradient-text mb-3">
-            订阅更新
-          </h3>
-          <p className="text-muted mb-6">
-            输入邮箱，第一时间获取最新文章推送
-          </p>
-          <form onSubmit={handleSubscribe} className="max-w-md mx-auto flex gap-2">
-            <input
-              type="email"
-              placeholder="your@email.com"
-              value={subscribeEmail}
-              onChange={(e) => setSubscribeEmail(e.target.value)}
-              required
-              className="flex-1 px-4 py-3 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
-            />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-primary hover:bg-primary-light text-white rounded-xl font-medium transition-colors cursor-pointer"
-            >
-              订阅
-            </button>
-          </form>
-          {subscribeMsg && (
-            <p className="text-sm mt-3 text-primary-light">{subscribeMsg}</p>
-          )}
+      {/* ===== Subscribe CTA ===== */}
+      <section className="py-10 mb-8 scroll-reveal">
+        <div className="relative glass rounded-2xl card-glow p-8 md:p-12 text-center overflow-hidden">
+          {/* Background decorative gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
+
+          <div className="relative">
+            <Sparkles className="w-8 h-8 mx-auto mb-4 text-primary-light" />
+            <h3 className="text-2xl md:text-3xl font-bold gradient-text mb-3">
+              订阅更新
+            </h3>
+            <p className="text-muted mb-8 max-w-md mx-auto">
+              输入邮箱，第一时间获取最新文章推送
+            </p>
+            <form onSubmit={handleSubscribe} className="max-w-lg mx-auto flex flex-col sm:flex-row gap-3">
+              <label htmlFor="subscribe-email" className="sr-only">邮箱地址</label>
+              <input
+                id="subscribe-email"
+                type="email"
+                placeholder="your@email.com"
+                value={subscribeEmail}
+                onChange={(e) => setSubscribeEmail(e.target.value)}
+                required
+                aria-describedby={subscribeMsg ? "subscribe-msg" : undefined}
+                className="flex-1 px-5 py-3.5 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all"
+              />
+              <button
+                type="submit"
+                className="px-8 py-3.5 bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/25 text-white rounded-xl font-medium transition-all cursor-pointer hover:-translate-y-0.5"
+              >
+                订阅
+              </button>
+            </form>
+            {subscribeMsg && (
+              <p id="subscribe-msg" role="status" aria-live="polite" className="text-sm mt-4 text-primary-light animate-fade-in">
+                {subscribeMsg}
+              </p>
+            )}
+          </div>
         </div>
       </section>
     </div>

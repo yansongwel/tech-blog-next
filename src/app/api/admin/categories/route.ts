@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
         slug,
         description: body.description || null,
         icon: body.icon || null,
+        color: body.color || null,
         parentId: body.parentId || null,
         sortOrder: body.sortOrder || 0,
       },
@@ -91,6 +92,7 @@ export async function PUT(request: NextRequest) {
         ...(body.slug !== undefined && { slug: body.slug }),
         ...(body.description !== undefined && { description: body.description || null }),
         ...(body.icon !== undefined && { icon: body.icon || null }),
+        ...(body.color !== undefined && { color: body.color || null }),
         ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder }),
       },
     });

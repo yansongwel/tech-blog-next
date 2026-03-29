@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import createDOMPurify from "dompurify";
-import ReadingProgress from "@/components/blog/ReadingProgress";
-import TableOfContents from "@/components/blog/TableOfContents";
+import "highlight.js/styles/github-dark-dimmed.css";
+import TableOfContents, { injectHeadingIds, type TocItem } from "@/components/blog/TableOfContents";
 import { PostDetailSkeleton } from "@/components/blog/Skeleton";
 import {
   Heart,
@@ -83,89 +83,97 @@ export default function PostDetail({ slug }: { slug: string }) {
         setPost(data);
         setLikeCount(data._count?.likes || 0);
         if (data.isLocked) setShowUnlock(true);
+        // Comments now included in post response (no extra fetch needed)
+        if (Array.isArray(data.comments)) setComments(data.comments);
       })
       .catch(() => setPost(null))
       .finally(() => setLoading(false));
   }, [slug]);
 
-  useEffect(() => {
-    if (!post) return;
-    fetch(`/api/comments?postId=${post.id}`)
-      .then((res) => res.json())
-      .then((data) => setComments(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, [post]);
-
-  // Sanitize HTML content using DOMPurify to prevent XSS attacks
-  const sanitizedContent = useMemo(() => {
-    if (!post || typeof window === "undefined") return "";
+  // Sanitize HTML content using DOMPurify, then inject heading IDs and code toolbars
+  const { safeHtml, tocHeadings } = useMemo(() => {
+    if (!post || typeof window === "undefined") return { safeHtml: "", tocHeadings: [] as TocItem[] };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const purify = (createDOMPurify as any).default ?? createDOMPurify;
     const sanitizer = typeof purify === "function" ? purify(window) : purify;
-    return sanitizer.sanitize(post.content);
+    const sanitized = sanitizer.sanitize(post.content);
+    // Inject stable id attributes into h2/h3 so TOC links survive re-renders
+    const { html, headings } = injectHeadingIds(sanitized);
+    // Inject code block toolbars (language label + copy button placeholder)
+    // so they survive React re-renders (same strategy as heading IDs)
+    const withToolbars = html.replace(
+      /<pre><code class="language-(\w+)">/g,
+      (_, lang) =>
+        `<pre style="position:relative;padding-top:2.5rem"><div class="code-toolbar" style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;font-size:12px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);border-radius:12px 12px 0 0"><span style="font-family:monospace">${lang.toUpperCase()}</span><button class="copy-btn" style="padding:2px 8px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;border-radius:4px;cursor:pointer;font-size:12px" onclick="(async()=>{try{await navigator.clipboard.writeText(this.closest('pre').querySelector('code').textContent);this.textContent='\\u2713 \\u5df2\\u590d\\u5236';this.style.color='#4ade80'}catch{this.textContent='\\u590d\\u5236\\u5931\\u8d25';this.style.color='#f87171'}setTimeout(()=>{this.textContent='\\u590d\\u5236';this.style.color='rgba(255,255,255,0.7)'},2000)})()">复制</button></div><code class="language-${lang}">`
+    );
+    return { safeHtml: withToolbars, tocHeadings: headings };
   }, [post]);
 
-  // Add copy buttons to code blocks + render Mermaid diagrams
-  useEffect(() => {
-    if (!post) return;
-    const timer = setTimeout(async () => {
-      // Copy buttons for code blocks (skip mermaid)
-      document.querySelectorAll("article pre").forEach((pre) => {
-        const code = pre.querySelector("code");
-        if (code?.classList.contains("language-mermaid")) return;
-        if (pre.querySelector(".copy-btn")) return;
-        const btn = document.createElement("button");
-        btn.className = "copy-btn absolute top-2 right-2 px-2 py-1 text-xs bg-white/10 hover:bg-white/20 text-white/70 rounded cursor-pointer transition-colors";
-        btn.textContent = "复制";
-        btn.onclick = () => {
-          const codeText = pre.querySelector("code")?.textContent || pre.textContent || "";
-          navigator.clipboard.writeText(codeText);
-          btn.textContent = "已复制!";
-          setTimeout(() => { btn.textContent = "复制"; }, 2000);
-        };
-        (pre as HTMLElement).style.position = "relative";
-        pre.appendChild(btn);
-      });
+  // Signal content is rendered (for highlighting)
+  const [contentReady, setContentReady] = useState(false);
 
-      // Render Mermaid diagrams
+  // Syntax highlighting, copy buttons, and Mermaid diagrams
+  // NOTE: Content rendered via safeHtml is sanitized by DOMPurify (see useMemo above)
+  useEffect(() => {
+    if (!post || !safeHtml) return;
+
+    // Syntax highlighting (async import, runs after DOM is ready)
+    // Copy buttons are already in safeHtml (injected in useMemo above)
+    setTimeout(() => {
+      import("highlight.js").then((mod) => {
+        const hljs = mod.default;
+        document.querySelectorAll("article pre code").forEach((block) => {
+          if (block.classList.contains("language-mermaid")) return;
+          if ((block as HTMLElement).dataset.highlighted) return;
+          hljs.highlightElement(block as HTMLElement);
+        });
+      }).catch(() => {});
+
+      // Render Mermaid diagrams (SVGs generated locally by mermaid.js, not user input)
       const mermaidBlocks = document.querySelectorAll("article pre code.language-mermaid");
       if (mermaidBlocks.length > 0) {
-        try {
-          const mermaid = (await import("mermaid")).default;
+        import("mermaid").then(async (mod) => {
+          const mermaid = mod.default;
+          const cs = getComputedStyle(document.documentElement);
+          const getVar = (v: string, d: string) => cs.getPropertyValue(v).trim() || d;
           mermaid.initialize({
-            startOnLoad: false,
-            theme: "dark",
+            startOnLoad: false, theme: "base",
             themeVariables: {
-              primaryColor: "#6366f1",
-              primaryTextColor: "#ededed",
-              primaryBorderColor: "#818cf8",
-              lineColor: "#06b6d4",
-              secondaryColor: "#1a1a2e",
-              tertiaryColor: "#2a2a4a",
+              primaryColor: getVar("--surface-light", "#16213e"),
+              primaryTextColor: getVar("--foreground", "#ededed"),
+              primaryBorderColor: getVar("--primary-light", "#818cf8"),
+              lineColor: getVar("--accent", "#06b6d4"),
+              secondaryColor: getVar("--surface", "#1a1a2e"),
+              tertiaryColor: getVar("--surface", "#1a1a2e"),
+              textColor: getVar("--foreground", "#ededed"),
+              fontSize: "14px", fontFamily: "inherit",
+              nodeBorder: getVar("--primary", "#6366f1"),
+              mainBkg: getVar("--surface-light", "#16213e"),
+              nodeTextColor: getVar("--foreground", "#ededed"),
             },
           });
           for (let i = 0; i < mermaidBlocks.length; i++) {
             const block = mermaidBlocks[i];
             const container = block.parentElement;
             if (!container) continue;
-            const mermaidCode = block.textContent || "";
             try {
-              const { svg } = await mermaid.render(`mermaid-${Date.now()}-${i}`, mermaidCode);
+              const { svg } = await mermaid.render(`mermaid-${Date.now()}-${i}`, block.textContent || "");
               const wrapper = document.createElement("div");
-              wrapper.className = "mermaid-rendered my-6 overflow-x-auto flex justify-center";
-              wrapper.innerHTML = svg;
+              wrapper.className = "mermaid-rendered";
+              // Mermaid SVGs are generated locally by the library, safe to render
+              const tmpl = document.createElement("template");
+              tmpl.innerHTML = svg; // eslint-disable-line -- mermaid-generated SVG, not user input
+              wrapper.appendChild(tmpl.content);
               container.replaceWith(wrapper);
-            } catch (err) {
-              console.warn("Mermaid render failed:", err);
-            }
+            } catch (err) { console.warn("Mermaid render failed:", err); }
           }
-        } catch {
-          console.warn("Failed to load mermaid");
-        }
+        }).catch(() => {});
       }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [post, sanitizedContent]);
+
+      setContentReady(true);
+    });
+    // No cleanup needed - setTimeout(0) is fire-and-forget, enhanceCodeBlocks is idempotent
+  }, [post, safeHtml]);
 
   const handleLike = async () => {
     if (!post || liking) return;
@@ -230,13 +238,9 @@ export default function PostDetail({ slug }: { slug: string }) {
     );
   }
 
-  // Content is sanitized by DOMPurify above (line ~100) before being set here
-  const safeHtml = sanitizedContent;
-
   return (
     <>
-      <ReadingProgress />
-      <TableOfContents />
+      <TableOfContents headings={tocHeadings} />
       <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 py-8">
         <Link href="/blog" className="inline-flex items-center gap-1 text-muted hover:text-foreground mb-6 text-sm cursor-pointer">
           <ArrowLeft className="w-4 h-4" /> 返回文章列表
@@ -263,20 +267,21 @@ export default function PostDetail({ slug }: { slug: string }) {
         <article className="glass rounded-2xl p-4 sm:p-6 md:p-10 mb-8">
           <div
             className="prose max-w-none
-              [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-8 [&_h2]:mb-4
+              [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-10 [&_h1]:mb-4
+              [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:pb-2 [&_h2]:border-b [&_h2]:border-border/50
               [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-6 [&_h3]:mb-3
-              [&_p]:text-foreground/80 [&_p]:leading-relaxed [&_p]:mb-4
-              [&_pre]:bg-surface [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:mb-4
-              [&_code]:font-mono [&_code]:text-accent-light [&_code]:text-sm
-              [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:text-foreground/80
-              [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_ol]:text-foreground/80
-              [&_li]:mb-1 [&_li]:text-foreground/80
-              [&_a]:text-primary-light [&_a]:underline
-              [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted
-              [&_img]:rounded-xl [&_img]:max-w-full
-              [&_table]:w-full [&_table]:border-collapse [&_table]:mb-4
-              [&_th]:bg-surface [&_th]:px-4 [&_th]:py-2 [&_th]:border [&_th]:border-border [&_th]:text-foreground [&_th]:text-left [&_th]:text-sm [&_th]:font-semibold
-              [&_td]:px-4 [&_td]:py-2 [&_td]:border [&_td]:border-border [&_td]:text-foreground/80 [&_td]:text-sm
+              [&_h4]:text-base [&_h4]:font-semibold [&_h4]:text-foreground [&_h4]:mt-4 [&_h4]:mb-2
+              [&_p]:text-foreground/90 [&_p]:leading-[1.8] [&_p]:mb-4
+              [&_pre]:p-4 [&_pre]:mb-4
+              [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:text-foreground/90
+              [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_ol]:text-foreground/90
+              [&_li]:mb-2 [&_li]:text-foreground/90 [&_li]:leading-[1.8]
+              [&_a]:text-primary-light [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-primary/30 hover:[&_a]:decoration-primary
+              [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-5 [&_blockquote]:py-3 [&_blockquote]:my-6 [&_blockquote]:not-italic [&_blockquote]:text-foreground/80 [&_blockquote]:bg-primary/5 [&_blockquote]:rounded-r-xl
+              [&_img]:rounded-xl [&_img]:max-w-full [&_img]:mx-auto [&_img]:my-6
+              [&_table]:w-full [&_table]:border-collapse [&_table]:mb-6 [&_table]:text-sm [&_table]:overflow-hidden [&_table]:rounded-xl
+              [&_th]:bg-surface [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_th]:text-foreground [&_th]:text-left [&_th]:font-semibold
+              [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border [&_td]:text-foreground/90
               [&_hr]:border-border [&_hr]:my-8
             "
             dangerouslySetInnerHTML={{ __html: safeHtml }}
@@ -313,7 +318,7 @@ export default function PostDetail({ slug }: { slug: string }) {
         {post.relatedPosts && post.relatedPosts.length > 0 && (
           <div className="mb-8">
             <h3 className="text-lg font-bold text-foreground mb-4">相关文章</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {post.relatedPosts.map((rp) => (
                 <Link key={rp.id} href={`/blog/${rp.slug}`} className="glass rounded-xl p-4 card-hover cursor-pointer block">
                   <span className="text-xs text-primary-light">{rp.category.name}</span>
@@ -332,21 +337,24 @@ export default function PostDetail({ slug }: { slug: string }) {
         <section className="glass rounded-2xl p-4 sm:p-6 md:p-8">
           <h3 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2"><MessageCircle className="w-5 h-5" />评论区 ({comments.length})</h3>
           <form onSubmit={handleComment} className="mb-8">
-            <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="写下你的评论..." rows={3} required className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors resize-none mb-3" />
+            <label htmlFor="comment-text" className="sr-only">评论内容</label>
+            <textarea id="comment-text" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="写下你的评论..." rows={3} required className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors resize-none mb-3" />
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <input type="text" placeholder="昵称" value={commentAuthor} onChange={(e) => setCommentAuthor(e.target.value)} required className="px-3 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary text-sm" />
-              <input type="email" placeholder="邮箱" value={commentEmail} onChange={(e) => setCommentEmail(e.target.value)} required className="px-3 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary text-sm" />
+              <label htmlFor="comment-author" className="sr-only">昵称</label>
+              <input id="comment-author" type="text" placeholder="昵称" value={commentAuthor} onChange={(e) => setCommentAuthor(e.target.value)} required className="px-3 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary text-sm" />
+              <label htmlFor="comment-email" className="sr-only">邮箱</label>
+              <input id="comment-email" type="email" placeholder="邮箱" value={commentEmail} onChange={(e) => setCommentEmail(e.target.value)} required className="px-3 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary text-sm" />
               <button type="submit" disabled={submittingComment} className="sm:ml-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary-light disabled:opacity-50 text-white rounded-lg text-sm cursor-pointer transition-colors">
                 <Send className="w-4 h-4" />{submittingComment ? "提交中..." : "发表评论"}
               </button>
             </div>
           </form>
-          {commentMsg && <p className={`text-sm mb-4 ${commentMsg.includes("失败") || commentMsg.includes("错误") ? "text-red-400" : "text-primary-light"}`}>{commentMsg}</p>}
+          {commentMsg && <p role="status" aria-live="polite" className={`text-sm mb-4 ${commentMsg.includes("失败") || commentMsg.includes("错误") ? "text-red-400" : "text-primary-light"}`}>{commentMsg}</p>}
           <div className="space-y-6">
             {comments.length === 0 ? (
               <p className="text-center text-muted py-4">暂无评论，来留下第一条评论吧</p>
             ) : comments.map((comment) => (
-              <div key={comment.id}>
+              <article key={comment.id} aria-label={`${comment.author} 的评论`}>
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-bold shrink-0">{comment.author[0]}</div>
                   <div className="flex-1 min-w-0">
@@ -358,7 +366,7 @@ export default function PostDetail({ slug }: { slug: string }) {
                   </div>
                 </div>
                 {comment.replies?.map((reply) => (
-                  <div key={reply.id} className="flex gap-3 ml-8 sm:ml-11 mt-3">
+                  <article key={reply.id} className="flex gap-3 ml-8 sm:ml-11 mt-3" aria-label={`${reply.author} 的回复`}>
                     <div className="w-6 h-6 rounded-full bg-accent/30 flex items-center justify-center text-accent text-xs font-bold shrink-0">{reply.author[0]}</div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -367,9 +375,9 @@ export default function PostDetail({ slug }: { slug: string }) {
                       </div>
                       <p className="text-xs text-foreground/80 break-words">{reply.content}</p>
                     </div>
-                  </div>
+                  </article>
                 ))}
-              </div>
+              </article>
             ))}
           </div>
         </section>

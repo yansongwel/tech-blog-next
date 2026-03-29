@@ -35,6 +35,7 @@ model Category {
   slug        String   @unique
   description String?
   icon        String?
+  color       String?
   parentId    String?
   parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryTree")

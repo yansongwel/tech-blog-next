@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import {
+  listAdminComments,
+  approveComment,
+  deleteComment,
+} from "@/lib/services/commentService";
 
 export const dynamic = "force-dynamic";
 
@@ -13,33 +17,19 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
-    const approved = searchParams.get("approved");
+    const approvedParam = searchParams.get("approved");
 
-    const where = {
-      ...(approved !== null && approved !== undefined && approved !== ""
-        ? { approved: approved === "true" }
-        : {}),
-    };
-
-    const [comments, total] = await Promise.all([
-      prisma.comment.findMany({
-        where,
-        include: {
-          post: { select: { title: true, slug: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.comment.count({ where }),
-    ]);
-
-    return NextResponse.json({
-      comments,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    const result = await listAdminComments({
+      page: parseInt(searchParams.get("page") || "1"),
+      limit: parseInt(searchParams.get("limit") || "20"),
+      approved:
+        approvedParam !== null && approvedParam !== ""
+          ? approvedParam === "true"
+          : null,
+      search: searchParams.get("search") || undefined,
     });
+
+    return NextResponse.json(result);
   } catch (err) {
     console.error("GET /api/admin/comments error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -55,24 +45,16 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, approved } = body;
-
-    if (!id) {
+    if (!body.id) {
       return NextResponse.json({ error: "Comment ID required" }, { status: 400 });
     }
 
-    const existing = await prisma.comment.findUnique({ where: { id } });
-    if (!existing) {
-      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
-    }
-
-    const comment = await prisma.comment.update({
-      where: { id },
-      data: { approved: Boolean(approved) },
-    });
-
+    const comment = await approveComment(body.id, Boolean(body.approved));
     return NextResponse.json(comment);
   } catch (err) {
+    if (err instanceof Error && err.message === "COMMENT_NOT_FOUND") {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    }
     console.error("PUT /api/admin/comments error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -86,24 +68,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
+    const id = new URL(request.url).searchParams.get("id");
     if (!id) {
       return NextResponse.json({ error: "Comment ID required" }, { status: 400 });
     }
 
-    const existing = await prisma.comment.findUnique({ where: { id } });
-    if (!existing) {
-      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
-    }
-
-    // Delete replies first, then the comment
-    await prisma.comment.deleteMany({ where: { parentId: id } });
-    await prisma.comment.delete({ where: { id } });
-
+    await deleteComment(id);
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof Error && err.message === "COMMENT_NOT_FOUND") {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    }
     console.error("DELETE /api/admin/comments error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -74,7 +74,8 @@ export async function POST(request: NextRequest) {
       "Content-Type": file.type,
     });
 
-    const s3Endpoint = process.env.S3_ENDPOINT || "http://localhost:9000";
+    const s3Endpoint = process.env.S3_PUBLIC_URL
+      || `${process.env.S3_ENDPOINT || "http://localhost"}:${process.env.S3_PORT || "9000"}`;
     const url = `${s3Endpoint}/${BUCKET}/${objectName}`;
 
     const media = await prisma.media.create({
