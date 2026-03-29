@@ -43,6 +43,7 @@ function BlogListContent() {
   const [activeSlug, setActiveSlug] = useState("");
   const [searchQuery, setSearchQuery] = useState(urlSearch);
   const [searchInput, setSearchInput] = useState(urlSearch);
+  const [sortBy, setSortBy] = useState<"latest" | "popular">("latest");
   const [posts, setPosts] = useState<Post[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pages: 1, total: 0 });
   const [loading, setLoading] = useState(true);
@@ -58,12 +59,9 @@ function BlogListContent() {
   const fetchPosts = useCallback(async (page = 1) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "12" });
-    if (activeSlug) {
-      params.set("category", activeSlug);
-    }
-    if (searchQuery) {
-      params.set("search", searchQuery);
-    }
+    if (activeSlug) params.set("category", activeSlug);
+    if (searchQuery) params.set("search", searchQuery);
+    if (sortBy !== "latest") params.set("sort", sortBy);
 
     try {
       const res = await fetch(`/api/posts?${params}`);
@@ -76,7 +74,7 @@ function BlogListContent() {
     } finally {
       setLoading(false);
     }
-  }, [activeSlug, searchQuery]);
+  }, [activeSlug, searchQuery, sortBy]);
 
   useEffect(() => {
     fetchPosts(1);
@@ -151,6 +149,30 @@ function BlogListContent() {
         </div>
       </div>
 
+      {/* Sort + result count */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="text-sm text-muted">
+          {searchQuery ? (
+            <span>找到 <span className="text-foreground font-medium">{pagination.total}</span> 篇关于「<span className="text-primary-light">{searchQuery}</span>」的文章</span>
+          ) : (
+            <span>共 <span className="text-foreground font-medium">{pagination.total}</span> 篇文章</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 text-xs">
+          {(["latest", "popular"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSortBy(s)}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                sortBy === s ? "bg-primary/10 text-primary-light" : "text-muted hover:text-foreground hover:bg-surface"
+              }`}
+            >
+              {s === "latest" ? "最新" : "最热"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Post grid */}
       {loading ? (
         <PostGridSkeleton count={12} />
@@ -201,8 +223,16 @@ function BlogListContent() {
           )}
         </>
       ) : (
-        <div className="text-center py-20 text-muted">
-          <p className="text-lg">暂无相关文章</p>
+        <div className="text-center py-20 glass rounded-2xl">
+          <Search className="w-12 h-12 mx-auto mb-4 text-muted/40" />
+          <p className="text-lg text-muted">
+            {searchQuery ? `未找到关于「${searchQuery}」的文章` : "暂无相关文章"}
+          </p>
+          {searchQuery && (
+            <button onClick={clearSearch} className="mt-4 px-4 py-2 text-sm text-primary-light hover:text-primary cursor-pointer">
+              清除搜索条件
+            </button>
+          )}
         </div>
       )}
     </div>

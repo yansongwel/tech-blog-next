@@ -13,6 +13,9 @@ import {
   Eye,
   Clock,
   ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Lock,
   Send,
   Check,
@@ -35,6 +38,8 @@ interface Post {
   isLocked: boolean;
   publishedAt: string;
   relatedPosts?: { id: string; title: string; slug: string; excerpt: string | null; coverImage: string | null; viewCount: number; publishedAt: string; category: { name: string; slug: string } }[];
+  prevPost?: { title: string; slug: string } | null;
+  nextPost?: { title: string; slug: string } | null;
   _count: { likes: number; comments: number };
 }
 
@@ -211,10 +216,29 @@ export default function PostDetail({ slug }: { slug: string }) {
 
   const handleBookmark = () => { if (post) setBookmarked(!bookmarked); };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setShared(true);
-    setTimeout(() => setShared(false), 2000);
+  const handleShare = async () => {
+    const url = window.location.href;
+    // Try native share (mobile)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: post?.title || "", url });
+        return;
+      } catch { /* user cancelled */ }
+    }
+    // Fallback: copy to clipboard
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    } catch { /* ignore */ }
   };
 
   const handleComment = async (e: React.FormEvent) => {
@@ -346,6 +370,30 @@ export default function PostDetail({ slug }: { slug: string }) {
                 </Link>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Prev / Next navigation */}
+        {(post.prevPost || post.nextPost) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            {post.prevPost ? (
+              <Link href={`/blog/${post.prevPost.slug}`} className="glass rounded-xl p-4 card-hover cursor-pointer group flex items-center gap-3">
+                <ChevronLeft className="w-5 h-5 text-muted group-hover:text-primary-light shrink-0 transition-colors" />
+                <div className="min-w-0">
+                  <span className="text-xs text-muted">上一篇</span>
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary-light transition-colors line-clamp-1">{post.prevPost.title}</p>
+                </div>
+              </Link>
+            ) : <div />}
+            {post.nextPost ? (
+              <Link href={`/blog/${post.nextPost.slug}`} className="glass rounded-xl p-4 card-hover cursor-pointer group flex items-center gap-3 justify-end text-right">
+                <div className="min-w-0">
+                  <span className="text-xs text-muted">下一篇</span>
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary-light transition-colors line-clamp-1">{post.nextPost.title}</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted group-hover:text-primary-light shrink-0 transition-colors" />
+              </Link>
+            ) : <div />}
           </div>
         )}
 

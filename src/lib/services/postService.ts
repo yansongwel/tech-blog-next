@@ -7,6 +7,7 @@ export interface ListPostsParams {
   limit?: number;
   category?: string;
   search?: string;
+  sort?: "latest" | "popular" | "comments";
 }
 
 export interface AdminListPostsParams {
@@ -97,7 +98,7 @@ async function syncTags(postId: string, tagNames: string[]): Promise<void> {
 
 // ─── Public API ──────────────────────────────────────────
 
-export async function listPublishedPosts({ page = 1, limit = 12, category, search }: ListPostsParams) {
+export async function listPublishedPosts({ page = 1, limit = 12, category, search, sort = "latest" }: ListPostsParams) {
   const safeLimit = Math.min(limit, 50);
 
   const where = {
@@ -118,7 +119,7 @@ export async function listPublishedPosts({ page = 1, limit = 12, category, searc
         category: { select: { name: true, slug: true } },
         _count: { select: { likes: true, comments: true } },
       },
-      orderBy: { publishedAt: "desc" },
+      orderBy: sort === "popular" ? { viewCount: "desc" as const } : { publishedAt: "desc" as const },
       skip: (page - 1) * safeLimit,
       take: safeLimit,
     }),
@@ -149,7 +150,7 @@ export async function getPostBySlug(slug: string) {
     .update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } })
     .catch(() => {});
 
-  const [relatedPosts, comments] = await Promise.all([
+  const [relatedPosts, comments, prevPost, nextPost] = await Promise.all([
     prisma.post.findMany({
       where: {
         categoryId: post.categoryId,
@@ -184,9 +185,21 @@ export async function getPostBySlug(slug: string) {
         },
       },
     }),
+    // Previous post (older)
+    prisma.post.findFirst({
+      where: { status: "PUBLISHED", publishedAt: { lt: post.publishedAt || post.createdAt } },
+      select: { title: true, slug: true },
+      orderBy: { publishedAt: "desc" },
+    }),
+    // Next post (newer)
+    prisma.post.findFirst({
+      where: { status: "PUBLISHED", publishedAt: { gt: post.publishedAt || post.createdAt } },
+      select: { title: true, slug: true },
+      orderBy: { publishedAt: "asc" },
+    }),
   ]);
 
-  return { ...post, viewCount: post.viewCount + 1, relatedPosts, comments };
+  return { ...post, viewCount: post.viewCount + 1, relatedPosts, comments, prevPost, nextPost };
 }
 
 export async function createPost(input: CreatePostInput) {
