@@ -7,6 +7,7 @@ const ALLOWED_KEYS = new Set([
   "music_url", "site_start_date", "theme_name",
   "loading_template", "loading_auto_enter", "loading_duration",
   "mouse_skin", "dancing_character",
+  "wechat_unlock_tip", "wechat_unlock_keyword",
 ]);
 
 export async function getAllSettings(): Promise<Record<string, string>> {

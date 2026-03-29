@@ -68,7 +68,9 @@ const settingsSections: { title: string; description: string; fields: FieldDef[]
     fields: [
       { key: "github_url", label: "GitHub 链接", placeholder: "https://github.com/...", type: "url" },
       { key: "email", label: "联系邮箱", placeholder: "admin@example.com", type: "email" },
-      { key: "wechat_qr_url", label: "公众号二维码 URL", placeholder: "/images/wechat-qr.png", type: "url" },
+      { key: "wechat_qr_url", label: "公众号二维码 URL", placeholder: "https://example.com/qr.png 或 /images/wechat-qr.png", type: "url" },
+      { key: "wechat_unlock_tip", label: "微信解锁提示", placeholder: "关注公众号后回复 888 获取解锁码", type: "text" },
+      { key: "wechat_unlock_keyword", label: "解锁关键词", placeholder: "888", type: "text" },
     ],
   },
   {

@@ -32,7 +32,8 @@ export default function NewPostPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [coverImage, setCoverImage] = useState("");
   const [uploadingCover, setUploadingCover] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
+  const [lockType, setLockType] = useState<"none" | "wechat" | "password">("none");
+  const [lockPassword, setLockPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -160,7 +161,9 @@ export default function NewPostPage() {
           coverImage: coverImage || null,
           categoryId,
           status,
-          isLocked,
+          isLocked: lockType !== "none",
+          lockType,
+          lockPassword: lockType === "password" ? lockPassword : null,
           tags: tags
             .split(",")
             .map((t) => t.trim())
@@ -540,28 +543,46 @@ export default function NewPostPage() {
             )}
           </div>
 
-          {/* WeChat lock */}
+          {/* Content Lock */}
           <div className="glass rounded-xl p-5">
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="font-semibold text-foreground">
-                微信解锁
-              </span>
-              <div
-                className={`relative w-10 h-5 rounded-full transition-colors ${
-                  isLocked ? "bg-primary" : "bg-border"
-                }`}
-                onClick={() => setIsLocked(!isLocked)}
-              >
-                <div
-                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                    isLocked ? "translate-x-5" : "translate-x-0.5"
-                  }`}
+            <h3 className="font-semibold text-foreground mb-3">内容解锁</h3>
+            <div className="space-y-2">
+              {([
+                { key: "none", label: "公开", desc: "所有人可阅读" },
+                { key: "wechat", label: "微信解锁", desc: "关注公众号获取验证码" },
+                { key: "password", label: "密码解锁", desc: "输入密码查看全文" },
+              ] as const).map((opt) => (
+                <label key={opt.key} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${lockType === opt.key ? "bg-primary/10 border border-primary/30" : "hover:bg-surface border border-transparent"}`}>
+                  <input
+                    type="radio"
+                    name="lockType"
+                    value={opt.key}
+                    checked={lockType === opt.key}
+                    onChange={() => setLockType(opt.key)}
+                    className="accent-primary"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                    <p className="text-xs text-muted">{opt.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            {lockType === "password" && (
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-foreground mb-1">文章密码</label>
+                <input
+                  type="text"
+                  value={lockPassword}
+                  onChange={(e) => setLockPassword(e.target.value)}
+                  placeholder="设置阅读密码"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary text-sm"
                 />
               </div>
-            </label>
-            {isLocked && (
-              <p className="text-xs text-muted mt-2">
-                开启后，访客需关注公众号获取验证码才能阅读全文
+            )}
+            {lockType === "wechat" && (
+              <p className="text-xs text-muted mt-3">
+                提示文案和公众号二维码在「设置 → 社交与联系」中配置
               </p>
             )}
           </div>

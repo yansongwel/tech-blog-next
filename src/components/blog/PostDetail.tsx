@@ -16,10 +16,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  KeyRound,
   Send,
   Check,
+  QrCode,
 } from "lucide-react";
 import Link from "next/link";
+import { useSiteConfig } from "@/lib/useSiteConfig";
 
 // NOTE: dangerouslySetInnerHTML is used ONLY with DOMPurify-sanitized content (line ~100)
 // All user content goes through DOMPurify.sanitize() before rendering
@@ -35,6 +38,7 @@ interface Post {
   tags: { tag: { name: string; slug: string } }[];
   viewCount: number;
   isLocked: boolean;
+  lockType?: string;
   publishedAt: string;
   relatedPosts?: { id: string; title: string; slug: string; excerpt: string | null; coverImage: string | null; viewCount: number; publishedAt: string; category: { name: string; slug: string } }[];
   prevPost?: { title: string; slug: string } | null;
@@ -60,6 +64,7 @@ function getVisitorId() {
 }
 
 export default function PostDetail({ slug }: { slug: string }) {
+  const config = useSiteConfig();
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +79,9 @@ export default function PostDetail({ slug }: { slug: string }) {
   const [liking, setLiking] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
   const [unlockCode, setUnlockCode] = useState("");
+  const [unlockError, setUnlockError] = useState("");
   const [shared, setShared] = useState(false);
 
   useEffect(() => {
@@ -340,16 +347,93 @@ export default function PostDetail({ slug }: { slug: string }) {
             dangerouslySetInnerHTML={{ __html: safeHtml }}
           />
 
-          {showUnlock && post.isLocked && (
+          {showUnlock && post.isLocked && !unlocked && (
             <div className="relative mt-8 p-6 sm:p-8 glass rounded-xl text-center">
-              <Lock className="w-8 h-8 text-primary mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-foreground mb-2">关注公众号解锁全文</h3>
-              <p className="text-sm text-muted mb-4">扫码关注公众号，获取验证码</p>
-              <div className="w-32 h-32 mx-auto mb-4 bg-surface rounded-xl border border-border flex items-center justify-center text-muted text-xs">[公众号二维码]</div>
-              <div className="flex gap-2 max-w-xs mx-auto">
-                <input type="text" placeholder="输入验证码" value={unlockCode} onChange={(e) => setUnlockCode(e.target.value)} className="flex-1 px-4 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary" />
-                <button className="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-light transition-colors">解锁</button>
-              </div>
+              {/* Gradient overlay to hide content */}
+              <div className="absolute -top-32 left-0 right-0 h-32 bg-gradient-to-t from-[var(--glass-bg)] to-transparent pointer-events-none" />
+
+              {post.lockType === "password" ? (
+                <>
+                  <KeyRound className="w-10 h-10 text-primary mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-foreground mb-2">此文章需要密码</h3>
+                  <p className="text-sm text-muted mb-5">请输入文章密码查看全文</p>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    setUnlockError("");
+                    try {
+                      const res = await fetch(`/api/posts/${post.slug}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ password: unlockCode }),
+                      });
+                      if (res.ok) {
+                        setUnlocked(true);
+                        setShowUnlock(false);
+                      } else {
+                        setUnlockError("密码不正确");
+                      }
+                    } catch { setUnlockError("网络错误"); }
+                  }} className="flex gap-2 max-w-xs mx-auto">
+                    <input
+                      type="password"
+                      placeholder="输入密码"
+                      value={unlockCode}
+                      onChange={(e) => setUnlockCode(e.target.value)}
+                      className="flex-1 px-4 py-2.5 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary"
+                    />
+                    <button type="submit" className="px-5 py-2.5 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-light transition-colors">解锁</button>
+                  </form>
+                  {unlockError && <p className="text-sm text-red-400 mt-3">{unlockError}</p>}
+                </>
+              ) : (
+                <>
+                  <QrCode className="w-10 h-10 text-primary mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-foreground mb-2">关注公众号解锁全文</h3>
+                  <p className="text-sm text-muted mb-4">
+                    {config.wechat_unlock_tip || "扫码关注公众号，回复关键词获取验证码"}
+                  </p>
+                  {config.wechat_qr_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={config.wechat_qr_url}
+                      alt="公众号二维码"
+                      className="w-40 h-40 mx-auto mb-4 rounded-xl border border-border object-contain bg-white"
+                    />
+                  ) : (
+                    <div className="w-40 h-40 mx-auto mb-4 bg-surface rounded-xl border border-border flex items-center justify-center text-muted text-xs">
+                      请在后台设置公众号二维码
+                    </div>
+                  )}
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    setUnlockError("");
+                    try {
+                      const res = await fetch("/api/wechat", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ postId: post.id, code: unlockCode }),
+                      });
+                      if (res.ok) {
+                        setUnlocked(true);
+                        setShowUnlock(false);
+                      } else {
+                        const data = await res.json();
+                        setUnlockError(data.error || "验证码不正确");
+                      }
+                    } catch { setUnlockError("网络错误"); }
+                  }} className="flex gap-2 max-w-xs mx-auto">
+                    <input
+                      type="text"
+                      placeholder={config.wechat_unlock_keyword ? `回复 ${config.wechat_unlock_keyword} 获取验证码` : "输入验证码"}
+                      value={unlockCode}
+                      onChange={(e) => setUnlockCode(e.target.value)}
+                      className="flex-1 px-4 py-2.5 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary"
+                    />
+                    <button type="submit" className="px-5 py-2.5 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-light transition-colors">解锁</button>
+                  </form>
+                  {unlockError && <p className="text-sm text-red-400 mt-3">{unlockError}</p>}
+                </>
+              )}
             </div>
           )}
         </article>

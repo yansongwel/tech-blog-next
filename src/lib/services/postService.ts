@@ -26,6 +26,8 @@ export interface CreatePostInput {
   coverImage?: string;
   status?: PostStatus;
   isLocked?: boolean;
+  lockType?: string;
+  lockPassword?: string | null;
   categoryId: string;
   authorId: string;
   tags?: string[];
@@ -40,6 +42,8 @@ export interface UpdatePostInput {
   categoryId?: string;
   status?: PostStatus;
   isLocked?: boolean;
+  lockType?: string;
+  lockPassword?: string | null;
   tags?: string[];
 }
 
@@ -200,7 +204,9 @@ export async function getPostBySlug(slug: string) {
     }),
   ]);
 
-  return { ...post, viewCount: post.viewCount + 1, relatedPosts, comments, prevPost, nextPost };
+  // Strip lockPassword from response (never expose to frontend)
+  const { lockPassword: _, ...safePost } = post;
+  return { ...safePost, viewCount: post.viewCount + 1, relatedPosts, comments, prevPost, nextPost };
 }
 
 export async function createPost(input: CreatePostInput) {
@@ -221,6 +227,8 @@ export async function createPost(input: CreatePostInput) {
       coverImage: data.coverImage || null,
       status: data.status ?? "DRAFT",
       isLocked: data.isLocked || false,
+      lockType: data.lockType || "none",
+      lockPassword: data.lockPassword || null,
       authorId: data.authorId,
       categoryId: data.categoryId,
       publishedAt: data.status === "PUBLISHED" ? new Date() : null,
@@ -280,6 +288,8 @@ export async function updatePost(input: UpdatePostInput) {
   if (fields.coverImage !== undefined) updateData.coverImage = fields.coverImage;
   if (fields.categoryId !== undefined) updateData.categoryId = fields.categoryId;
   if (fields.isLocked !== undefined) updateData.isLocked = fields.isLocked;
+  if (fields.lockType !== undefined) updateData.lockType = fields.lockType;
+  if (fields.lockPassword !== undefined) updateData.lockPassword = fields.lockPassword;
   if (fields.status !== undefined) {
     updateData.status = fields.status;
     if (fields.status === "PUBLISHED" && existing.status !== "PUBLISHED") {
