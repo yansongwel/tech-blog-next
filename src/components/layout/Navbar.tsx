@@ -13,6 +13,9 @@ import {
   ArrowRight,
   Command,
   Sparkles,
+  Sun,
+  Moon,
+  Rss,
 } from "lucide-react";
 import { Dialog, DialogPanel, Transition, TransitionChild } from "@headlessui/react";
 import { useSiteConfig } from "@/lib/useSiteConfig";
@@ -109,6 +112,8 @@ export default function Navbar() {
 
   const staticLinks = [
     { href: "/blog", label: "博客", icon: FileText },
+    { href: "/tags", label: "标签", icon: null },
+    { href: "/archive", label: "归档", icon: null },
     { href: "/album", label: "相册", icon: Sparkles },
     { href: "/about", label: "关于", icon: null },
   ];
@@ -249,7 +254,35 @@ export default function Navbar() {
             </div>
 
             {/* Right actions */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
+              {/* Theme toggle */}
+              <button
+                onClick={() => {
+                  const isLight = config.theme_name === "theme-light";
+                  const next = isLight ? "theme-dark-indigo" : "theme-light";
+                  document.documentElement.className = next;
+                  fetch("/api/admin/settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ theme_name: next }),
+                  }).catch(() => {});
+                }}
+                className="hidden sm:flex p-2 text-foreground/50 hover:text-foreground hover:bg-white/5 rounded-lg transition-all cursor-pointer"
+                aria-label="切换主题"
+              >
+                {config.theme_name === "theme-light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              </button>
+              {/* RSS */}
+              <a
+                href="/feed.xml"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:flex p-2 text-foreground/50 hover:text-foreground hover:bg-white/5 rounded-lg transition-all"
+                aria-label="RSS 订阅"
+              >
+                <Rss className="w-4 h-4" />
+              </a>
+              {/* Search */}
               <button
                 onClick={() => setCmdOpen(true)}
                 className="flex items-center gap-2 px-2.5 py-1.5 text-foreground/50 hover:text-foreground hover:bg-white/5 rounded-lg transition-all cursor-pointer group"

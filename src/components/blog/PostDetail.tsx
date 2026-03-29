@@ -99,12 +99,27 @@ export default function PostDetail({ slug }: { slug: string }) {
     const sanitized = sanitizer.sanitize(post.content);
     // Inject stable id attributes into h2/h3 so TOC links survive re-renders
     const { html, headings } = injectHeadingIds(sanitized);
-    // Inject code block toolbars (language label + copy button placeholder)
-    // so they survive React re-renders (same strategy as heading IDs)
+    // Inject code block toolbars with robust copy (clipboard API + execCommand fallback)
+    const copyFn = [
+      "(function(b){",
+        "var t=b.closest('pre').querySelector('code').textContent;",
+        "function ok(){b.textContent='\\u2713 \\u5df2\\u590d\\u5236';b.style.color='#4ade80'}",
+        "function fail(){b.textContent='\\u590d\\u5236\\u5931\\u8d25';b.style.color='#f87171'}",
+        "function reset(){setTimeout(function(){b.textContent='\\u590d\\u5236';b.style.color='rgba(255,255,255,0.7)'},2000)}",
+        "if(navigator.clipboard&&window.isSecureContext){",
+          "navigator.clipboard.writeText(t).then(ok,fail).finally(reset)",
+        "}else{",
+          "var a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';",
+          "document.body.appendChild(a);a.select();",
+          "try{document.execCommand('copy');ok()}catch(e){fail()}",
+          "document.body.removeChild(a);reset()",
+        "}",
+      "})(this)",
+    ].join("");
     const withToolbars = html.replace(
       /<pre><code class="language-(\w+)">/g,
       (_, lang) =>
-        `<pre style="position:relative;padding-top:2.5rem"><div class="code-toolbar" style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;font-size:12px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);border-radius:12px 12px 0 0"><span style="font-family:monospace">${lang.toUpperCase()}</span><button class="copy-btn" style="padding:2px 8px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;border-radius:4px;cursor:pointer;font-size:12px" onclick="(async()=>{try{await navigator.clipboard.writeText(this.closest('pre').querySelector('code').textContent);this.textContent='\\u2713 \\u5df2\\u590d\\u5236';this.style.color='#4ade80'}catch{this.textContent='\\u590d\\u5236\\u5931\\u8d25';this.style.color='#f87171'}setTimeout(()=>{this.textContent='\\u590d\\u5236';this.style.color='rgba(255,255,255,0.7)'},2000)})()">复制</button></div><code class="language-${lang}">`
+        `<pre style="position:relative;padding-top:2.5rem"><div class="code-toolbar" style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;font-size:12px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);border-radius:12px 12px 0 0"><span style="font-family:monospace">${lang.toUpperCase()}</span><button class="copy-btn" style="padding:2px 8px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;border-radius:4px;cursor:pointer;font-size:12px" onclick="${copyFn}">复制</button></div><code class="language-${lang}">`
     );
     return { safeHtml: withToolbars, tocHeadings: headings };
   }, [post]);
