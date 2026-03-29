@@ -10,9 +10,12 @@ function createPrismaClient() {
     process.env.DATABASE_URL ||
     "postgresql://postgres:postgres@localhost:5432/techblog?schema=public";
   const adapter = new PrismaPg(connectionString);
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+  });
 }
 
+// Cache in both dev and prod to prevent connection leaks
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+globalForPrisma.prisma = prisma;

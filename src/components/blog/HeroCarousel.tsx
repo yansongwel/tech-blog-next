@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
@@ -13,7 +13,6 @@ interface Slide {
   slug: string;
 }
 
-// Fallback gradient colors per index
 const gradients = [
   "#1a1a2e, #6366f1",
   "#0f3460, #06b6d4",
@@ -25,41 +24,67 @@ const gradients = [
 export default function HeroCarousel() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [current, setCurrent] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [paused, setPaused] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef(0);
 
   useEffect(() => {
     fetch("/api/posts?limit=5")
       .then((res) => res.json())
-      .then((data) => {
-        if (data.posts?.length > 0) {
-          setSlides(data.posts);
-        }
-      })
+      .then((data) => { if (data.posts?.length > 0) setSlides(data.posts); })
       .catch(() => {});
   }, []);
 
-  const goTo = (index: number) => {
-    if (isTransitioning) return;
-    setIsTransitioning(true);
+  const transitioningRef = useRef(false);
+  const currentRef = useRef(current);
+  useEffect(() => { currentRef.current = current; }, [current]);
+
+  const goTo = useCallback((index: number) => {
+    if (transitioningRef.current) return;
+    transitioningRef.current = true;
     setCurrent(index);
-    setTimeout(() => setIsTransitioning(false), 500);
-  };
+    setTimeout(() => { transitioningRef.current = false; }, 500);
+  }, []);
 
-  const next = () => {
-    if (slides.length > 0) goTo((current + 1) % slides.length);
-  };
-  const prev = () => {
-    if (slides.length > 0) goTo((current - 1 + slides.length) % slides.length);
-  };
+  const next = useCallback(() => {
+    if (slides.length > 0) goTo((currentRef.current + 1) % slides.length);
+  }, [slides.length, goTo]);
 
+  const prev = useCallback(() => {
+    if (slides.length > 0) goTo((currentRef.current - 1 + slides.length) % slides.length);
+  }, [slides.length, goTo]);
+
+  // Auto-advance (pause on hover)
   useEffect(() => {
-    if (slides.length === 0) return;
-    intervalRef.current = setInterval(next, 5000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    if (slides.length === 0 || paused) return;
+    intervalRef.current = setInterval(next, 6000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [slides.length, paused, next]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
+      if (e.key === "ArrowRight") { e.preventDefault(); next(); }
     };
-  }, [current, slides.length]);
+    el.addEventListener("keydown", handleKey);
+    return () => el.removeEventListener("keydown", handleKey);
+  }, [next, prev]);
+
+  // Touch swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) next();
+      else prev();
+    }
+  };
 
   if (slides.length === 0) {
     return (
@@ -73,11 +98,26 @@ export default function HeroCarousel() {
   }
 
   return (
-    <div className="relative w-full h-[500px] md:h-[600px] overflow-hidden rounded-2xl group">
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      role="region"
+      aria-label="推荐文章轮播"
+      aria-roledescription="carousel"
+      className="relative w-full h-[500px] md:h-[600px] overflow-hidden rounded-2xl group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {slides.map((slide, index) => (
         <div
           key={slide.id}
-          className={`absolute inset-0 transition-all duration-700 ease-in-out ${
+          role="group"
+          aria-roledescription="slide"
+          aria-label={`第 ${index + 1} 张，共 ${slides.length} 张: ${slide.title}`}
+          aria-hidden={index !== current}
+          className={`absolute inset-0 transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${
             index === current
               ? "opacity-100 scale-100"
               : "opacity-0 scale-105"
@@ -106,7 +146,7 @@ export default function HeroCarousel() {
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-3 leading-tight">
               {slide.title}
             </h2>
-            <p className="text-white/70 text-lg max-w-2xl">
+            <p className="text-white/70 text-lg max-w-2xl line-clamp-2">
               {slide.excerpt || ""}
             </p>
             <Link
@@ -121,26 +161,31 @@ export default function HeroCarousel() {
 
       <button
         onClick={prev}
-        className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 glass rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+        aria-label="上一张"
+        className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 glass rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
       >
         <ChevronLeft className="w-5 h-5" />
       </button>
       <button
         onClick={next}
-        className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 glass rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+        aria-label="下一张"
+        className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 glass rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
       >
         <ChevronRight className="w-5 h-5" />
       </button>
 
+      {/* Slide indicators */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => goTo(index)}
-            className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+            aria-label={`跳转到第 ${index + 1} 张`}
+            aria-current={index === current ? "true" : undefined}
+            className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
               index === current
                 ? "w-8 bg-primary"
-                : "w-2 bg-white/40 hover:bg-white/60"
+                : "w-2.5 bg-white/40 hover:bg-white/60"
             }`}
           />
         ))}

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Upload, Trash2, Loader2, Image as ImageIcon, Copy, Check, X } from "lucide-react";
+import { useToast } from "@/components/admin/Toast";
+import ConfirmModal from "@/components/admin/ConfirmModal";
 
 interface Media {
   id: string;
@@ -24,7 +26,11 @@ export default function MediaPage() {
   const [uploading, setUploading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ name: string; status: "pending" | "uploading" | "done" | "error" }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+  const toast = useToast();
+  const [confirmModal, setConfirmModal] = useState<{open: boolean, title: string, message: string, onConfirm: () => void}>({open: false, title: "", message: "", onConfirm: () => {}});
 
   const fetchMedia = () => {
     setLoading(true);
@@ -43,33 +49,57 @@ export default function MediaPage() {
     const files = e.target.files;
     if (!files?.length) return;
 
+    const fileList = Array.from(files);
+    // Validate file sizes
+    const oversized = fileList.filter((f) => f.size > MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      toast.warning(`以下文件超过 10MB 限制：${oversized.map((f) => f.name).join("、")}`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
-    let failed = 0;
-    for (const file of Array.from(files)) {
+    const progress = fileList.map((f) => ({ name: f.name, status: "pending" as const }));
+    setUploadProgress([...progress]);
+
+    for (let i = 0; i < fileList.length; i++) {
+      setUploadProgress((prev) => prev.map((p, j) => j === i ? { ...p, status: "uploading" } : p));
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", fileList[i]);
       try {
         const res = await fetch("/api/admin/media", { method: "POST", body: formData });
-        if (!res.ok) failed++;
+        setUploadProgress((prev) => prev.map((p, j) => j === i ? { ...p, status: res.ok ? "done" : "error" } : p));
       } catch {
-        failed++;
+        setUploadProgress((prev) => prev.map((p, j) => j === i ? { ...p, status: "error" } : p));
       }
     }
     setUploading(false);
-    if (failed > 0) alert(`${failed} 个文件上传失败`);
+    toast.success("上传成功");
     fetchMedia();
     if (fileInputRef.current) fileInputRef.current.value = "";
+    // Clear progress after 3 seconds
+    setTimeout(() => setUploadProgress([]), 3000);
   };
 
-  const handleDelete = async (id: string, filename: string) => {
-    if (!confirm(`确定删除「${filename}」？`)) return;
-    try {
-      const res = await fetch(`/api/admin/media?id=${id}`, { method: "DELETE" });
-      if (!res.ok) alert("删除失败");
-    } catch {
-      alert("网络错误，请重试");
-    }
-    fetchMedia();
+  const handleDelete = (id: string, filename: string) => {
+    setConfirmModal({
+      open: true,
+      title: "删除文件",
+      message: `确定删除「${filename}」？`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/media?id=${id}`, { method: "DELETE" });
+          if (res.ok) {
+            toast.success("已删除");
+          } else {
+            toast.error("删除失败");
+          }
+        } catch {
+          toast.error("网络错误，请重试");
+        }
+        fetchMedia();
+      },
+    });
   };
 
   const handleCopy = (url: string, id: string) => {
@@ -96,6 +126,26 @@ export default function MediaPage() {
           />
         </label>
       </div>
+
+      {/* Upload progress */}
+      {uploadProgress.length > 0 && (
+        <div className="mb-4 glass rounded-xl p-4 space-y-2 animate-fade-in">
+          {uploadProgress.map((p, i) => (
+            <div key={i} className="flex items-center gap-3 text-sm">
+              {p.status === "uploading" && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />}
+              {p.status === "done" && <Check className="w-3.5 h-3.5 text-green-400 shrink-0" />}
+              {p.status === "error" && <X className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+              {p.status === "pending" && <div className="w-3.5 h-3.5 rounded-full bg-muted/30 shrink-0" />}
+              <span className={`truncate ${p.status === "error" ? "text-red-400" : "text-foreground/80"}`}>{p.name}</span>
+              <span className="text-xs text-muted ml-auto shrink-0">
+                {p.status === "uploading" ? "上传中" : p.status === "done" ? "完成" : p.status === "error" ? "失败" : "等待"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs text-muted mb-4">支持 JPG、PNG、GIF、WebP、SVG，单文件最大 10MB</p>
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -125,12 +175,20 @@ export default function MediaPage() {
                 <img
                   src={item.url}
                   alt={item.filename}
+                  loading="lazy"
                   className="w-full h-full object-cover cursor-pointer"
                   onClick={() => setPreviewUrl(item.url)}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
+                    const img = e.target as HTMLImageElement;
+                    img.style.display = "none";
+                    // Show fallback icon
+                    const fallback = img.nextElementSibling as HTMLElement | null;
+                    if (fallback) fallback.style.display = "flex";
                   }}
                 />
+                <div className="absolute inset-0 items-center justify-center text-muted hidden">
+                  <ImageIcon className="w-8 h-8" />
+                </div>
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <button
                     onClick={() => handleCopy(item.url, item.id)}
@@ -182,6 +240,7 @@ export default function MediaPage() {
           </button>
         </div>
       )}
+      <ConfirmModal open={confirmModal.open} title={confirmModal.title} message={confirmModal.message} danger onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(prev => ({...prev, open: false})); }} onCancel={() => setConfirmModal(prev => ({...prev, open: false}))} />
     </div>
   );
 }

@@ -11,6 +11,8 @@ interface Star {
   pulse: number;
 }
 
+const CELL_SIZE = 120; // Grid cell size matches connection distance
+
 export default function ParticleBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -23,7 +25,7 @@ export default function ParticleBackground() {
     canvas.height = window.innerHeight;
 
     const stars: Star[] = [];
-    const starCount = 150;
+    const starCount = 100; // Reduced from 150 for better perf
 
     for (let i = 0; i < starCount; i++) {
       stars.push({
@@ -36,7 +38,7 @@ export default function ParticleBackground() {
       });
     }
 
-    const mousePos = { x: canvas.width / 2, y: canvas.height / 2 };
+    const mousePos = { x: -1000, y: -1000 };
 
     const handleMouseMove = (e: MouseEvent) => {
       mousePos.x = e.clientX;
@@ -48,10 +50,42 @@ export default function ParticleBackground() {
       canvas.height = window.innerHeight;
     };
 
+    // Reusable spatial grid to avoid Map allocation per frame
+    const grid = new Map<string, number[]>();
+
+    function buildGrid(): void {
+      grid.clear();
+      for (let i = 0; i < stars.length; i++) {
+        const cx = Math.floor(stars[i].x / CELL_SIZE);
+        const cy = Math.floor(stars[i].y / CELL_SIZE);
+        const key = `${cx},${cy}`;
+        const cell = grid.get(key);
+        if (cell) cell.push(i);
+        else grid.set(key, [i]);
+      }
+    }
+
+    function getNeighborIndices(grid: Map<string, number[]>, x: number, y: number): number[] {
+      const cx = Math.floor(x / CELL_SIZE);
+      const cy = Math.floor(y / CELL_SIZE);
+      const result: number[] = [];
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const cell = grid.get(`${cx + dx},${cy + dy}`);
+          if (cell) result.push(...cell);
+        }
+      }
+      return result;
+    }
+
+    let animId: number;
+
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      buildGrid();
 
-      for (const star of stars) {
+      for (let i = 0; i < stars.length; i++) {
+        const star = stars[i];
         star.y += star.speed;
         star.pulse += 0.02;
 
@@ -69,30 +103,31 @@ export default function ParticleBackground() {
         ctx.fillStyle = `rgba(99, 102, 241, ${alpha})`;
         ctx.fill();
 
-        // Draw connections to nearby stars
-        for (const other of stars) {
+        // Draw connections to nearby stars (grid lookup, not O(n²))
+        const neighbors = getNeighborIndices(grid, star.x, star.y);
+        for (const j of neighbors) {
+          if (j <= i) continue; // Avoid duplicate lines
+          const other = stars[j];
           const dx = star.x - other.x;
           const dy = star.y - other.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist < 120) {
+          const distSq = dx * dx + dy * dy;
+          if (distSq < CELL_SIZE * CELL_SIZE) {
+            const dist = Math.sqrt(distSq);
             ctx.beginPath();
             ctx.moveTo(star.x, star.y);
             ctx.lineTo(other.x, other.y);
-            ctx.strokeStyle = `rgba(99, 102, 241, ${
-              (1 - dist / 120) * 0.15
-            })`;
+            ctx.strokeStyle = `rgba(99, 102, 241, ${(1 - dist / CELL_SIZE) * 0.15})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
         }
 
         // Mouse attraction
-        const dx = mousePos.x - star.x;
-        const dy = mousePos.y - star.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 200) {
-          const force = (200 - dist) / 200;
+        const mdx = mousePos.x - star.x;
+        const mdy = mousePos.y - star.y;
+        const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+        if (mdist < 200) {
+          const force = (200 - mdist) / 200;
           ctx.beginPath();
           ctx.moveTo(star.x, star.y);
           ctx.lineTo(mousePos.x, mousePos.y);
@@ -102,14 +137,15 @@ export default function ParticleBackground() {
         }
       }
 
-      requestAnimationFrame(animate);
+      animId = requestAnimationFrame(animate);
     };
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("resize", handleResize);
-    animate();
+    animId = requestAnimationFrame(animate);
 
     return () => {
+      cancelAnimationFrame(animId);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", handleResize);
     };

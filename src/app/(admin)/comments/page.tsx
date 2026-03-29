@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Trash2, Loader2, MessageSquare, Reply, Send, X } from "lucide-react";
+import { Check, Trash2, Loader2, MessageSquare, Reply, Send, X, ChevronLeft, ChevronRight, Search, CheckSquare, Square } from "lucide-react";
 import Link from "next/link";
+import { useToast } from "@/components/admin/Toast";
+import ConfirmModal from "@/components/admin/ConfirmModal";
 
 interface Comment {
   id: string;
@@ -21,24 +23,102 @@ export default function CommentsManagePage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toast = useToast();
+  const [confirmModal, setConfirmModal] = useState<{open: boolean, title: string, message: string, onConfirm: () => void}>({open: false, title: "", message: "", onConfirm: () => {}});
 
-  const fetchComments = (f?: string) => {
+  const fetchComments = (p?: number, f?: string, search?: string) => {
     setLoading(true);
+    setError("");
     const currentFilter = f ?? filter;
-    const params = new URLSearchParams();
+    const currentPage = p ?? page;
+    const currentSearch = search ?? searchQuery;
+    const params = new URLSearchParams({ page: String(currentPage), limit: "20" });
     if (currentFilter === "pending") params.set("approved", "false");
     if (currentFilter === "approved") params.set("approved", "true");
+    if (currentSearch) params.set("search", currentSearch);
 
     fetch(`/api/admin/comments?${params}`)
-      .then((res) => res.json())
-      .then((data) => setComments(data.comments || []))
-      .catch(() => {})
+      .then((res) => {
+        if (!res.ok) throw new Error("加载失败");
+        return res.json();
+      })
+      .then((data) => {
+        setComments(data.comments || []);
+        setTotalPages(data.pagination?.pages || 1);
+        setTotal(data.pagination?.total || 0);
+      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    fetchComments();
+    fetchComments(1);
+    setPage(1);
   }, [filter]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Debounced server-side search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchComments(1, undefined, searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBatchApprove = () => {
+    if (selectedIds.size === 0) return;
+    setConfirmModal({
+      open: true,
+      title: "批量审核",
+      message: `确定审核通过 ${selectedIds.size} 条评论？`,
+      onConfirm: async () => {
+        for (const id of selectedIds) {
+          await fetch("/api/admin/comments", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, approved: true }),
+          });
+        }
+        toast.success(`已审核 ${selectedIds.size} 条评论`);
+        setSelectedIds(new Set());
+        fetchComments();
+      },
+    });
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedIds.size === 0) return;
+    setConfirmModal({
+      open: true,
+      title: "批量删除",
+      message: `确定删除 ${selectedIds.size} 条评论？此操作不可撤销。`,
+      onConfirm: async () => {
+        for (const id of selectedIds) {
+          await fetch(`/api/admin/comments?id=${id}`, { method: "DELETE" });
+        }
+        toast.success(`已删除 ${selectedIds.size} 条评论`);
+        setSelectedIds(new Set());
+        fetchComments();
+      },
+    });
+  };
 
   const handleApprove = async (id: string) => {
     await fetch("/api/admin/comments", {
@@ -46,13 +126,21 @@ export default function CommentsManagePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, approved: true }),
     });
+    toast.success("已审核");
     fetchComments();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("确定删除该评论？")) return;
-    await fetch(`/api/admin/comments?id=${id}`, { method: "DELETE" });
-    fetchComments();
+  const handleDelete = (id: string) => {
+    setConfirmModal({
+      open: true,
+      title: "删除评论",
+      message: "确定删除该评论？",
+      onConfirm: async () => {
+        await fetch(`/api/admin/comments?id=${id}`, { method: "DELETE" });
+        toast.success("评论已删除");
+        fetchComments();
+      },
+    });
   };
 
   const handleReply = async (comment: Comment) => {
@@ -78,11 +166,12 @@ export default function CommentsManagePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: reply.id, approved: true }),
         });
+        toast.success("回复成功");
         setReplyText("");
         setReplyingTo(null);
         fetchComments();
       }
-    } catch { alert("回复失败"); }
+    } catch { toast.error("回复失败"); }
     setReplying(false);
   };
 
@@ -91,7 +180,7 @@ export default function CommentsManagePage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">评论管理</h1>
-          <p className="text-sm text-muted mt-1">审核、回复和管理用户评论</p>
+          <p className="text-sm text-muted mt-1">共 {total} 条评论</p>
         </div>
         <div className="flex gap-2">
           {(["all", "pending", "approved"] as const).map((f) => (
@@ -110,7 +199,34 @@ export default function CommentsManagePage() {
         </div>
       </div>
 
-      {loading ? (
+      {/* Search + Batch Actions */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+          <input
+            type="text"
+            placeholder="搜索评论内容、作者、邮箱..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-surface border border-border rounded-lg text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-primary"
+          />
+        </div>
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 animate-fade-in">
+            <span className="text-sm text-foreground">已选 {selectedIds.size}</span>
+            <button onClick={handleBatchApprove} className="px-3 py-1 text-xs bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg cursor-pointer">批量通过</button>
+            <button onClick={handleBatchDelete} className="px-3 py-1 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg cursor-pointer">批量删除</button>
+            <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1 text-xs text-muted hover:text-foreground cursor-pointer">取消选择</button>
+          </div>
+        )}
+      </div>
+
+      {error ? (
+        <div className="text-center py-20">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button onClick={() => fetchComments(page)} className="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-light transition-colors">重新加载</button>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -124,6 +240,9 @@ export default function CommentsManagePage() {
           {comments.map((comment) => (
             <div key={comment.id} className="glass rounded-xl p-5">
               <div className="flex items-start justify-between gap-4">
+                <button onClick={() => toggleSelect(comment.id)} className="mt-1 shrink-0 cursor-pointer text-muted hover:text-foreground">
+                  {selectedIds.has(comment.id) ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
@@ -210,6 +329,28 @@ export default function CommentsManagePage() {
           ))}
         </div>
       )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <button
+            onClick={() => { setPage((p) => Math.max(1, p - 1)); fetchComments(Math.max(1, page - 1)); }}
+            disabled={page <= 1}
+            className="p-2 text-muted hover:text-foreground disabled:opacity-30 cursor-pointer rounded-lg hover:bg-white/5"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm text-muted px-3">第 {page} / {totalPages} 页</span>
+          <button
+            onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); fetchComments(Math.min(totalPages, page + 1)); }}
+            disabled={page >= totalPages}
+            className="p-2 text-muted hover:text-foreground disabled:opacity-30 cursor-pointer rounded-lg hover:bg-white/5"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      <ConfirmModal open={confirmModal.open} title={confirmModal.title} message={confirmModal.message} danger onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(prev => ({...prev, open: false})); }} onCancel={() => setConfirmModal(prev => ({...prev, open: false}))} />
     </div>
   );
 }

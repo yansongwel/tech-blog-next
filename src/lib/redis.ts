@@ -4,8 +4,23 @@ const globalForRedis = globalThis as unknown as {
   redis: Redis | undefined;
 };
 
-export const redis =
-  globalForRedis.redis ??
-  new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+function createRedis() {
+  const client = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+    maxRetriesPerRequest: 3,
+    retryStrategy(times) {
+      // Exponential backoff: 100ms, 200ms, 400ms... max 3s
+      return Math.min(times * 100, 3000);
+    },
+    lazyConnect: false,
+  });
 
-if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;
+  client.on("error", (err) => {
+    console.error("Redis connection error:", err.message);
+  });
+
+  return client;
+}
+
+// Cache in both dev and prod
+export const redis = globalForRedis.redis ?? createRedis();
+globalForRedis.redis = redis;

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2, Link2, GripVertical, Eye, EyeOff, Pencil, X, Check } from "lucide-react";
+import { useToast } from "@/components/admin/Toast";
+import ConfirmModal from "@/components/admin/ConfirmModal";
 
 interface FriendLink {
   id: string;
@@ -20,6 +22,8 @@ export default function FriendLinksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", url: "", description: "", logo: "", sortOrder: 0 });
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
+  const [confirmModal, setConfirmModal] = useState<{open: boolean, title: string, message: string, onConfirm: () => void}>({open: false, title: "", message: "", onConfirm: () => {}});
 
   const fetchLinks = () => {
     setLoading(true);
@@ -30,7 +34,9 @@ export default function FriendLinksPage() {
       .finally(() => setLoading(false));
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { fetchLinks(); }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const resetForm = () => {
     setForm({ name: "", url: "", description: "", logo: "", sortOrder: 0 });
@@ -52,10 +58,11 @@ export default function FriendLinksPage() {
       if (res.ok) {
         resetForm();
         fetchLinks();
+        toast.success("保存成功");
       } else {
-        alert("保存失败");
+        toast.error("保存失败");
       }
-    } catch { alert("网络错误"); }
+    } catch { toast.error("网络错误"); }
     setSaving(false);
   };
 
@@ -71,13 +78,19 @@ export default function FriendLinksPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`确定删除友链「${name}」？`)) return;
-    try {
-      const res = await fetch(`/api/admin/friend-links?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchLinks();
-      else alert("删除失败");
-    } catch { alert("网络错误"); }
+  const handleDelete = (id: string, name: string) => {
+    setConfirmModal({
+      open: true,
+      title: "删除友链",
+      message: `确定删除友链「${name}」？`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/friend-links?id=${id}`, { method: "DELETE" });
+          if (res.ok) fetchLinks();
+          else toast.error("删除失败");
+        } catch { toast.error("网络错误"); }
+      },
+    });
   };
 
   const handleToggleVisible = async (link: FriendLink) => {
@@ -207,6 +220,7 @@ export default function FriendLinksPage() {
           ))}
         </div>
       )}
+      <ConfirmModal open={confirmModal.open} title={confirmModal.title} message={confirmModal.message} danger onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(prev => ({...prev, open: false})); }} onCancel={() => setConfirmModal(prev => ({...prev, open: false}))} />
     </div>
   );
 }

@@ -11,6 +11,8 @@ import {
   Plus,
   Image,
   Settings,
+  AlertCircle,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -70,11 +72,17 @@ export default function DashboardPage() {
   const [trend, setTrend] = useState<TrendItem[]>([]);
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState<{ pendingComments: number; draftPosts: number; unconfirmedSubscribers: number } | null>(null);
 
-  useEffect(() => {
+  const loadStats = () => {
+    setLoading(true);
+    setError("");
+    // Fetch pending items in parallel
+    fetch("/api/admin/pending").then((r) => r.json()).then((d) => setPending(d)).catch(() => {});
     fetch("/api/admin/stats")
       .then((res) => {
-        if (!res.ok) throw new Error("Unauthorized");
+        if (!res.ok) throw new Error("加载失败");
         return res.json();
       })
       .then((data) => {
@@ -83,14 +91,29 @@ export default function DashboardPage() {
         setTrend(data.trend || []);
         setCategoryStats(data.categoryStats || []);
       })
-      .catch(() => {})
+      .catch((err) => setError(err.message || "加载仪表盘数据失败"))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => { loadStats(); }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-400 mb-4">{error}</p>
+        <button onClick={loadStats} className="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-light transition-colors">
+          重新加载
+        </button>
       </div>
     );
   }
@@ -125,6 +148,31 @@ export default function DashboardPage() {
           <div><p className="text-sm font-medium text-foreground">站点设置</p><p className="text-xs text-muted">外观配置</p></div>
         </Link>
       </div>
+
+      {/* Pending Items */}
+      {pending && (pending.pendingComments > 0 || pending.draftPosts > 0 || pending.unconfirmedSubscribers > 0) && (
+        <div className="glass rounded-xl p-4 mb-6 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2 text-amber-400">
+            <AlertCircle className="w-5 h-5" />
+            <span className="text-sm font-medium">待处理</span>
+          </div>
+          {pending.pendingComments > 0 && (
+            <Link href="/comments" className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-lg text-xs hover:bg-amber-500/20 transition-colors cursor-pointer">
+              <MessageCircle className="w-3.5 h-3.5" /> {pending.pendingComments} 条评论待审核
+            </Link>
+          )}
+          {pending.draftPosts > 0 && (
+            <Link href="/posts" className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-lg text-xs hover:bg-blue-500/20 transition-colors cursor-pointer">
+              <FileText className="w-3.5 h-3.5" /> {pending.draftPosts} 篇草稿未发布
+            </Link>
+          )}
+          {pending.unconfirmedSubscribers > 0 && (
+            <Link href="/subscribers" className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg text-xs hover:bg-cyan-500/20 transition-colors cursor-pointer">
+              <Mail className="w-3.5 h-3.5" /> {pending.unconfirmedSubscribers} 位订阅未确认
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">

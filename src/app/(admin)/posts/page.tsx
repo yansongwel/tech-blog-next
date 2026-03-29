@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Edit, Trash2, Eye, Loader2, ChevronLeft, ChevronRight, Search, CheckSquare, Square, Download } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Loader2, ChevronLeft, ChevronRight, Search, CheckSquare, Square, Download, FileText } from "lucide-react";
+import { useToast } from "@/components/admin/Toast";
+import ConfirmModal from "@/components/admin/ConfirmModal";
 
 interface Post {
   id: string;
@@ -33,13 +35,69 @@ export default function PostsManagePage() {
   const [total, setTotal] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchLoading, setBatchLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const toast = useToast();
+  const [confirmModal, setConfirmModal] = useState<{open: boolean, title: string, message: string, onConfirm: () => void}>({open: false, title: "", message: "", onConfirm: () => {}});
 
-  const fetchPosts = (p?: number, status?: string) => {
+  const exportPostAsMarkdown = async (postId: string, postTitle: string) => {
+    try {
+      const res = await fetch(`/api/admin/posts/${postId}`);
+      if (!res.ok) return;
+      const post = await res.json();
+      const TurndownService = (await import("turndown")).default;
+      const td = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+      const markdown = `# ${post.title}\n\n` + td.turndown(post.content || "");
+      const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${postTitle.replace(/[/\\?%*:|"<>]/g, "-")}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("导出失败，请重试");
+    }
+  };
+
+  const exportAllAsMarkdown = async () => {
+    setExporting(true);
+    try {
+      // Fetch all posts (no pagination limit)
+      const res = await fetch("/api/admin/posts?limit=100");
+      const data = await res.json();
+      const allPosts = data.posts || [];
+      const TurndownService = (await import("turndown")).default;
+      const td = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+
+      for (const p of allPosts) {
+        const detailRes = await fetch(`/api/admin/posts/${p.id}`);
+        if (!detailRes.ok) continue;
+        const detail = await detailRes.json();
+        const markdown = `# ${detail.title}\n\n` + td.turndown(detail.content || "");
+        const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${p.title.replace(/[/\\?%*:|"<>]/g, "-")}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        // Small delay to avoid browser blocking multiple downloads
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    } catch {
+      toast.error("批量导出失败");
+    }
+    setExporting(false);
+  };
+
+  const fetchPosts = (p?: number, status?: string, search?: string) => {
     setLoading(true);
     const currentPage = p ?? page;
     const currentStatus = status ?? statusFilter;
+    const currentSearch = search ?? searchQuery;
     const params = new URLSearchParams({ page: String(currentPage), limit: "15" });
     if (currentStatus) params.set("status", currentStatus);
+    if (currentSearch) params.set("search", currentSearch);
 
     fetch(`/api/admin/posts?${params}`)
       .then((res) => res.json())
@@ -56,13 +114,34 @@ export default function PostsManagePage() {
     fetchPosts();
   }, [page, statusFilter]);
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`确定要删除文章「${title}」吗？此操作不可撤销。`)) return;
-    try {
-      const res = await fetch(`/api/admin/posts?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchPosts();
-      else alert("删除失败，请重试");
-    } catch { alert("网络错误，请重试"); }
+  // Debounced server-side search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchPosts(1, undefined, searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleDelete = (id: string, title: string) => {
+    setConfirmModal({
+      open: true,
+      title: "删除文章",
+      message: `确定要删除文章「${title}」吗？此操作不可撤销。`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/posts?id=${id}`, { method: "DELETE" });
+          if (res.ok) {
+            toast.success("文章已删除");
+            fetchPosts();
+          } else {
+            toast.error("删除失败，请重试");
+          }
+        } catch {
+          toast.error("网络错误，请重试");
+        }
+      },
+    });
   };
 
   const toggleSelect = (id: string) => {
@@ -79,30 +158,36 @@ export default function PostsManagePage() {
     else setSelectedIds(new Set(filteredPosts.map((p) => p.id)));
   };
 
-  const handleBatchAction = async (action: "PUBLISHED" | "DRAFT" | "ARCHIVED" | "DELETE") => {
+  const handleBatchAction = (action: "PUBLISHED" | "DRAFT" | "ARCHIVED" | "DELETE") => {
     if (selectedIds.size === 0) return;
     const label = action === "DELETE" ? "删除" : action === "PUBLISHED" ? "发布" : action === "DRAFT" ? "转为草稿" : "归档";
-    if (!confirm(`确定要${label} ${selectedIds.size} 篇文章吗？`)) return;
-    setBatchLoading(true);
-    for (const id of selectedIds) {
-      if (action === "DELETE") {
-        await fetch(`/api/admin/posts?id=${id}`, { method: "DELETE" });
-      } else {
-        await fetch("/api/admin/posts", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, status: action }),
-        });
-      }
-    }
-    setSelectedIds(new Set());
-    setBatchLoading(false);
-    fetchPosts();
+    setConfirmModal({
+      open: true,
+      title: `批量${label}`,
+      message: `确定要${label} ${selectedIds.size} 篇文章吗？`,
+      onConfirm: async () => {
+        setBatchLoading(true);
+        for (const id of selectedIds) {
+          if (action === "DELETE") {
+            await fetch(`/api/admin/posts?id=${id}`, { method: "DELETE" });
+          } else {
+            await fetch("/api/admin/posts", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id, status: action }),
+            });
+          }
+        }
+        toast.success(`已${label} ${selectedIds.size} 篇文章`);
+        setSelectedIds(new Set());
+        setBatchLoading(false);
+        fetchPosts();
+      },
+    });
   };
 
-  const filteredPosts = searchQuery
-    ? posts.filter((p) => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : posts;
+  // Server-side search: posts are already filtered by API
+  const filteredPosts = posts;
 
   return (
     <div>
@@ -129,7 +214,14 @@ export default function PostsManagePage() {
             }}
             className="flex items-center gap-2 px-3 py-2 bg-surface border border-border hover:bg-white/5 text-foreground rounded-lg text-sm transition-colors cursor-pointer"
           >
-            <Download className="w-4 h-4" /> 导出
+            <Download className="w-4 h-4" /> 导出 CSV
+          </button>
+          <button
+            onClick={exportAllAsMarkdown}
+            disabled={exporting}
+            className="flex items-center gap-2 px-3 py-2 bg-surface border border-border hover:bg-white/5 text-foreground rounded-lg text-sm transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} 导出 Markdown
           </button>
           <Link
             href="/posts/new"
@@ -254,6 +346,9 @@ export default function PostsManagePage() {
                           <Link href={`/posts/${post.id}/edit`} className="p-1.5 text-muted hover:text-primary-light hover:bg-primary/10 rounded-lg cursor-pointer" title="编辑">
                             <Edit className="w-4 h-4" />
                           </Link>
+                          <button onClick={() => exportPostAsMarkdown(post.id, post.title)} className="p-1.5 text-muted hover:text-accent-light hover:bg-accent/10 rounded-lg cursor-pointer" title="导出 Markdown">
+                            <FileText className="w-4 h-4" />
+                          </button>
                           <button onClick={() => handleDelete(post.id, post.title)} className="p-1.5 text-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer" title="删除">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -290,6 +385,7 @@ export default function PostsManagePage() {
           )}
         </>
       )}
+      <ConfirmModal open={confirmModal.open} title={confirmModal.title} message={confirmModal.message} danger onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(prev => ({...prev, open: false})); }} onCancel={() => setConfirmModal(prev => ({...prev, open: false}))} />
     </div>
   );
 }

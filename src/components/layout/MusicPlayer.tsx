@@ -12,6 +12,7 @@ export default function MusicPlayer() {
   const [hasMusic, setHasMusic] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const musicUrl = config.music_url;
     if (!musicUrl) {
@@ -23,7 +24,6 @@ export default function MusicPlayer() {
     audio.loop = true;
     audio.volume = 0.3;
 
-    // Only show player if audio can load
     audio.addEventListener("canplaythrough", () => setHasMusic(true));
     audio.addEventListener("error", () => setHasMusic(false));
     audio.load();
@@ -35,6 +35,7 @@ export default function MusicPlayer() {
       audio.removeAttribute("src");
     };
   }, [config.music_url]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const togglePlay = () => {
     if (!audioRef.current) return;

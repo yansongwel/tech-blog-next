@@ -1,23 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 
 export default function ScrollButtons() {
   const [showTop, setShowTop] = useState(false);
   const [showBottom, setShowBottom] = useState(true);
+  const ticking = useRef(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const docHeight = document.documentElement.scrollHeight;
-
-      setShowTop(scrollY > 300);
-      setShowBottom(scrollY + windowHeight < docHeight - 100);
+      if (ticking.current) return;
+      ticking.current = true;
+      requestAnimationFrame(() => {
+        const scrollY = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const docHeight = document.documentElement.scrollHeight;
+        setShowTop(scrollY > 200);
+        setShowBottom(scrollY + windowHeight < docHeight - 100);
+        ticking.current = false;
+      });
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -31,8 +36,8 @@ export default function ScrollButtons() {
       {showTop && (
         <button
           onClick={scrollToTop}
-          className="w-10 h-10 glass rounded-full flex items-center justify-center text-muted hover:text-foreground hover:border-primary/50 transition-all cursor-pointer animate-fade-in"
-          title="回到顶部"
+          aria-label="回到顶部"
+          className="w-10 h-10 glass rounded-full flex items-center justify-center text-muted hover:text-foreground hover:border-primary/50 transition-all cursor-pointer animate-fade-in focus-visible:ring-2 focus-visible:ring-primary"
         >
           <ArrowUp className="w-4 h-4" />
         </button>
@@ -40,8 +45,8 @@ export default function ScrollButtons() {
       {showBottom && (
         <button
           onClick={scrollToBottom}
-          className="w-10 h-10 glass rounded-full flex items-center justify-center text-muted hover:text-foreground hover:border-primary/50 transition-all cursor-pointer animate-fade-in"
-          title="到达底部"
+          aria-label="到达底部"
+          className="w-10 h-10 glass rounded-full flex items-center justify-center text-muted hover:text-foreground hover:border-primary/50 transition-all cursor-pointer animate-fade-in focus-visible:ring-2 focus-visible:ring-primary"
         >
           <ArrowDown className="w-4 h-4" />
         </button>

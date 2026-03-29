@@ -1,6 +1,21 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Search } from "lucide-react";
 
 export default function NotFound() {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) {
+      router.push(`/blog?search=${encodeURIComponent(query.trim())}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="text-center">
@@ -14,9 +29,24 @@ export default function NotFound() {
           </p>
           <div className="w-24 h-0.5 mx-auto mt-4 bg-gradient-to-r from-primary to-accent" />
         </div>
-        <p className="text-muted mb-8 max-w-md mx-auto">
-          你访问的页面不存在或已被移除。请检查 URL 是否正确，或返回首页浏览更多内容。
+        <p className="text-muted mb-6 max-w-md mx-auto">
+          你访问的页面不存在或已被移除。试试搜索你想找的内容：
         </p>
+
+        {/* Search */}
+        <form onSubmit={handleSearch} className="max-w-sm mx-auto mb-8">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+            <input
+              type="text"
+              placeholder="搜索文章..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
+        </form>
+
         <div className="flex items-center justify-center gap-4">
           <Link
             href="/"
