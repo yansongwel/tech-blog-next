@@ -13,7 +13,6 @@ import {
   Eye,
   Clock,
   ArrowLeft,
-  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Lock,
@@ -134,7 +133,6 @@ export default function PostDetail({ slug }: { slug: string }) {
   }, [post]);
 
   // Signal content is rendered (for highlighting)
-  const [contentReady, setContentReady] = useState(false);
 
   // Syntax highlighting, copy buttons, and Mermaid diagrams
   // NOTE: Content rendered via safeHtml is sanitized by DOMPurify (see useMemo above)
@@ -199,7 +197,6 @@ export default function PostDetail({ slug }: { slug: string }) {
         (img as HTMLElement).style.cursor = "zoom-in";
       });
 
-      setContentReady(true);
     });
     // No cleanup needed - setTimeout(0) is fire-and-forget, enhanceCodeBlocks is idempotent
   }, [post, safeHtml]);

@@ -14,7 +14,6 @@ import {
   Heart,
   Users,
   Sparkles,
-  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { getCategoryIcon, getCategoryColor } from "@/lib/categoryUtils";
