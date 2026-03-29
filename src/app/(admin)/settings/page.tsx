@@ -168,33 +168,38 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* Theme Selector */}
+      {/* Theme Selector — instant preview on click */}
       <div className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold text-foreground mb-2">主题外观</h2>
-        <p className="text-sm text-muted mb-4">选择站点配色方案</p>
+        <p className="text-sm text-muted mb-4">点击即时预览，保存后生效。切换可对比不同主题效果。</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           {THEMES.map((theme) => {
             const isActive = (settings.theme_name || "theme-dark-indigo") === theme.key;
             return (
               <button
                 key={theme.key}
-                onClick={() => updateField("theme_name", theme.key)}
-                className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                onClick={() => {
+                  updateField("theme_name", theme.key);
+                  document.documentElement.className = theme.key;
+                }}
+                className={`relative rounded-xl border-2 transition-all cursor-pointer overflow-hidden ${
                   isActive
                     ? "border-primary shadow-lg shadow-primary/20 scale-105"
                     : "border-border hover:border-primary/50"
                 }`}
               >
-                <div className="flex gap-1 mb-3 justify-center">
-                  {theme.colors.map((color, i) => (
-                    <div
-                      key={i}
-                      className="w-5 h-5 rounded-full border border-white/10"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
+                {/* Mini theme preview */}
+                <div className="p-3 text-left" style={{ background: theme.colors[2], color: theme.colors[2] === "#f8fafc" ? "#1e293b" : "#ededed" }}>
+                  <div className="flex gap-1 mb-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: theme.colors[0] }} />
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: theme.colors[1] }} />
+                  </div>
+                  <div className="h-1.5 w-3/4 rounded-full mb-1" style={{ backgroundColor: theme.colors[0] }} />
+                  <div className="h-1 w-1/2 rounded-full opacity-40" style={{ backgroundColor: theme.colors[2] === "#f8fafc" ? "#1e293b" : "#ededed" }} />
                 </div>
-                <p className="text-xs text-center text-foreground font-medium">{theme.label}</p>
+                <div className="px-3 py-2">
+                  <p className="text-xs text-center text-foreground font-medium">{theme.label}</p>
+                </div>
                 {isActive && (
                   <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                     <Check className="w-3 h-3 text-white" />
@@ -206,12 +211,12 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Loading Template Selector */}
+      {/* Loading Template Selector — with mini animated previews */}
       <div className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
           <Monitor className="w-5 h-5 text-primary-light" /> 加载动画模板
         </h2>
-        <p className="text-sm text-muted mb-4">首次访问时的加载动画样式（含访客 IP 欢迎信息）。加载完成后显示欢迎按钮，用户点击进入。</p>
+        <p className="text-sm text-muted mb-4">首次访问时的全屏动画效果，含访客 IP 定位和欢迎按钮</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           {LOADING_TEMPLATES.map((tpl) => {
             const isActive = (settings.loading_template || "matrix") === tpl.key;
@@ -219,23 +224,59 @@ export default function SettingsPage() {
               <button
                 key={tpl.key}
                 onClick={() => updateField("loading_template", tpl.key)}
-                className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer text-left ${
+                className={`relative rounded-xl border-2 transition-all cursor-pointer overflow-hidden ${
                   isActive
                     ? "border-primary shadow-lg shadow-primary/20 scale-105"
                     : "border-border hover:border-primary/50"
                 }`}
               >
-                <div className="flex gap-1 mb-2 justify-center">
-                  {tpl.colors.map((color, i) => (
-                    <div
-                      key={i}
-                      className="w-5 h-5 rounded-full border border-white/10"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
+                {/* Mini animation preview */}
+                <div className="h-20 relative overflow-hidden" style={{ background: "#0a0a0f" }}>
+                  {tpl.key === "matrix" && (
+                    <div className="absolute inset-0 flex gap-1 justify-center items-end opacity-60">
+                      {[...Array(8)].map((_, i) => (
+                        <div key={i} className="w-1 rounded-t animate-pulse" style={{
+                          backgroundColor: tpl.colors[i % 2],
+                          height: `${20 + Math.random() * 50}%`,
+                          animationDelay: `${i * 0.2}s`,
+                        }} />
+                      ))}
+                    </div>
+                  )}
+                  {tpl.key === "cyber" && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-10 h-10 border border-indigo-500/40 rotate-45 animate-pulse" />
+                      <div className="absolute w-6 h-6 border border-indigo-400/60 rotate-45 animate-ping" style={{ animationDuration: "2s" }} />
+                    </div>
+                  )}
+                  {tpl.key === "terminal" && (
+                    <div className="absolute inset-0 p-2 text-left font-mono">
+                      <div className="text-[7px] text-green-400 opacity-80">$ system boot...</div>
+                      <div className="text-[7px] text-green-400 opacity-60">[OK] modules loaded</div>
+                      <div className="text-[7px] text-cyan-400 opacity-80">$ detecting IP...</div>
+                      <div className="text-[7px] text-green-400 animate-pulse">█</div>
+                    </div>
+                  )}
+                  {tpl.key === "radar" && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full border border-cyan-500/30" />
+                      <div className="absolute w-8 h-8 rounded-full border border-cyan-500/20" />
+                      <div className="absolute w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                    </div>
+                  )}
+                  {tpl.key === "glitch" && (
+                    <div className="absolute inset-0">
+                      <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(99,102,241,0.03)_2px,rgba(99,102,241,0.03)_4px)]" />
+                      <div className="absolute top-1/3 left-1/4 w-8 h-1 bg-indigo-500/40 animate-pulse" />
+                      <div className="absolute top-1/2 left-1/3 w-6 h-1 bg-rose-500/40 animate-pulse" style={{ animationDelay: "0.5s" }} />
+                      <div className="absolute top-2/3 left-1/5 w-10 h-0.5 bg-cyan-500/30 animate-pulse" style={{ animationDelay: "1s" }} />
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-center text-foreground font-medium">{tpl.label}</p>
-                <p className="text-[10px] text-center text-muted mt-0.5">{tpl.description}</p>
+                <div className="p-2.5">
+                  <p className="text-xs text-center text-foreground font-medium">{tpl.label}</p>
+                  <p className="text-[10px] text-center text-muted mt-0.5">{tpl.description}</p>
+                </div>
                 {isActive && (
                   <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                     <Check className="w-3 h-3 text-white" />
@@ -289,12 +330,12 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Mouse Skin Selector */}
+      {/* Mouse Skin Selector — with particle trail preview */}
       <div className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
           <MousePointer className="w-5 h-5 text-primary-light" /> 鼠标特效皮肤
         </h2>
-        <p className="text-sm text-muted mb-4">自定义鼠标粒子轨迹和光标颜色</p>
+        <p className="text-sm text-muted mb-4">自定义鼠标粒子轨迹、光标颜色和点击烟花效果（桌面端可见）</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           {MOUSE_SKINS.map((ms) => {
             const isActive = (settings.mouse_skin || "indigo") === ms.key;
@@ -302,22 +343,41 @@ export default function SettingsPage() {
               <button
                 key={ms.key}
                 onClick={() => updateField("mouse_skin", ms.key)}
-                className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                className={`relative rounded-xl border-2 transition-all cursor-pointer overflow-hidden ${
                   isActive
                     ? "border-primary shadow-lg shadow-primary/20 scale-105"
                     : "border-border hover:border-primary/50"
                 }`}
               >
-                <div className="flex gap-1 mb-2 justify-center">
-                  {ms.colors.map((color, i) => (
+                {/* Particle trail preview */}
+                <div className="h-16 relative overflow-hidden" style={{ background: "#0a0a0f" }}>
+                  {/* Simulated cursor + trail */}
+                  <div className="absolute top-3 left-2 w-3 h-3 rounded-full border-2 opacity-70" style={{ borderColor: ms.colors[0] }} />
+                  {/* Trail dots */}
+                  {[...Array(6)].map((_, i) => (
                     <div
                       key={i}
-                      className="w-8 h-8 rounded-full border border-white/10"
-                      style={{ backgroundColor: color }}
+                      className="absolute rounded-full animate-pulse"
+                      style={{
+                        width: `${4 - i * 0.5}px`,
+                        height: `${4 - i * 0.5}px`,
+                        backgroundColor: ms.colors[i % 2],
+                        opacity: 0.8 - i * 0.12,
+                        left: `${10 + i * 14}px`,
+                        top: `${14 + Math.sin(i * 0.8) * 8}px`,
+                        animationDelay: `${i * 0.15}s`,
+                      }}
                     />
                   ))}
+                  {/* Click burst */}
+                  <div className="absolute right-3 bottom-3">
+                    <div className="w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: ms.colors[0], animationDuration: "1.5s" }} />
+                    <div className="absolute inset-0 w-2 h-2 rounded-full" style={{ backgroundColor: ms.colors[1] }} />
+                  </div>
                 </div>
-                <p className="text-xs text-center text-foreground font-medium">{ms.label}</p>
+                <div className="p-2.5">
+                  <p className="text-xs text-center text-foreground font-medium">{ms.label}</p>
+                </div>
                 {isActive && (
                   <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                     <Check className="w-3 h-3 text-white" />
