@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import PostCard from "@/components/blog/PostCard";
 import { PostGridSkeleton } from "@/components/blog/Skeleton";
-import { Search, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, X, LayoutGrid, List, Eye, Heart, Clock } from "lucide-react";
+import Link from "next/link";
 
 interface Category {
   name: string;
@@ -21,6 +22,13 @@ interface Post {
   viewCount: number;
   _count: { likes: number; comments: number };
   publishedAt: string;
+}
+
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query || !text) return <>{text}</>;
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+  const parts = text.split(regex);
+  return <>{parts.map((p, i) => regex.test(p) ? <mark key={i} className="bg-primary/30 text-foreground rounded px-0.5">{p}</mark> : <span key={i}>{p}</span>)}</>;
 }
 
 interface Pagination {
@@ -44,6 +52,7 @@ function BlogListContent() {
   const [searchQuery, setSearchQuery] = useState(urlSearch);
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [sortBy, setSortBy] = useState<"latest" | "popular">("latest");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [posts, setPosts] = useState<Post[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pages: 1, total: 0 });
   const [loading, setLoading] = useState(true);
@@ -170,6 +179,9 @@ function BlogListContent() {
               {s === "latest" ? "最新" : "最热"}
             </button>
           ))}
+          <div className="w-px h-4 bg-border mx-1" />
+          <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-lg cursor-pointer ${viewMode === "grid" ? "text-primary-light bg-primary/10" : "text-muted hover:text-foreground"}`} title="网格视图"><LayoutGrid className="w-4 h-4" /></button>
+          <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg cursor-pointer ${viewMode === "list" ? "text-primary-light bg-primary/10" : "text-muted hover:text-foreground"}`} title="列表视图"><List className="w-4 h-4" /></button>
         </div>
       </div>
 
@@ -178,11 +190,42 @@ function BlogListContent() {
         <PostGridSkeleton count={12} />
       ) : posts.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} searchQuery={searchQuery || undefined} />
-            ))}
-          </div>
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {posts.map((post) => (
+                <PostCard key={post.id} post={post} searchQuery={searchQuery || undefined} />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {posts.map((post) => (
+                <Link key={post.id} href={`/blog/${post.slug}`} className="block glass rounded-xl p-5 card-hover cursor-pointer group">
+                  <div className="flex items-start gap-4">
+                    {post.coverImage && (
+                      <div className="w-24 h-16 rounded-lg overflow-hidden shrink-0 hidden sm:block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={post.coverImage} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-foreground group-hover:text-primary-light transition-colors line-clamp-1">
+                        {searchQuery ? <HighlightText text={post.title} query={searchQuery} /> : post.title}
+                      </h3>
+                      <p className="text-sm text-muted mt-1 line-clamp-1">
+                        {searchQuery ? <HighlightText text={post.excerpt || ""} query={searchQuery} /> : post.excerpt}
+                      </p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted">
+                        <span className="px-1.5 py-0.5 bg-primary/10 text-primary-light rounded">{post.category.name}</span>
+                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{post.viewCount}</span>
+                        <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{post._count?.likes || 0}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(post.publishedAt).toLocaleDateString("zh-CN")}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Pagination */}
           {pagination.pages > 1 && (

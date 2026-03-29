@@ -14,6 +14,7 @@ import {
   Heart,
   Users,
   Sparkles,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { getCategoryIcon, getCategoryColor } from "@/lib/categoryUtils";
@@ -102,7 +103,11 @@ export default function HomePage() {
   const [subscribeMsg, setSubscribeMsg] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [visitorInfo, setVisitorInfo] = useState<{ ip: string; city?: string; region?: string; country?: string } | null>(null);
-  const [siteStats, setSiteStats] = useState<{ totalViews: number; totalPosts: number; totalLikes: number; siteVisits: number; hotPosts?: { id: string; title: string; slug: string; viewCount: number; category: { name: string } }[] } | null>(null);
+  const [siteStats, setSiteStats] = useState<{
+    totalViews: number; totalPosts: number; totalLikes: number; siteVisits: number;
+    hotPosts?: { id: string; title: string; slug: string; viewCount: number; category: { name: string } }[];
+    recentComments?: { id: string; author: string; content: string; createdAt: string; post: { title: string; slug: string } }[];
+  } | null>(null);
   const config = useSiteConfig();
   const fullText = useMemo(() => config.site_description || "探索技术的无限可能", [config.site_description]);
   const revealRef = useScrollReveal<HTMLDivElement>();
@@ -351,6 +356,30 @@ export default function HomePage() {
                 <span className="text-xs text-muted flex items-center gap-1 shrink-0">
                   <Eye className="w-3 h-3" />{hp.viewCount.toLocaleString()}
                 </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ===== Recent Comments ===== */}
+      {siteStats?.recentComments && siteStats.recentComments.length > 0 && (
+        <section className="py-10 scroll-reveal">
+          <SectionHeading title="最新评论" />
+          <div className="glass rounded-2xl p-6 space-y-4">
+            {siteStats.recentComments.map((c) => (
+              <Link key={c.id} href={`/blog/${c.post.slug}`} className="flex gap-3 group cursor-pointer">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {c.author[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-xs text-muted mb-1">
+                    <span className="font-medium text-foreground">{c.author}</span>
+                    <span>评论了</span>
+                    <span className="text-primary-light group-hover:underline truncate">{c.post.title}</span>
+                  </div>
+                  <p className="text-sm text-muted line-clamp-1">{c.content}</p>
+                </div>
               </Link>
             ))}
           </div>

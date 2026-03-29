@@ -73,6 +73,7 @@ export default function PostDetail({ slug }: { slug: string }) {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentMsg, setCommentMsg] = useState("");
   const [liking, setLiking] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
   const [unlockCode, setUnlockCode] = useState("");
   const [shared, setShared] = useState(false);
@@ -189,6 +190,15 @@ export default function PostDetail({ slug }: { slug: string }) {
           }
         }).catch(() => {});
       }
+
+      // Add lightbox click to article images
+      document.querySelectorAll("article img").forEach((img) => {
+        const el = img as HTMLImageElement;
+        if (el.dataset.lightbox) return;
+        el.dataset.lightbox = "true";
+        el.style.cursor = "zoom-in";
+        el.addEventListener("click", () => setLightboxUrl(el.src));
+      });
 
       setContentReady(true);
     });
@@ -445,6 +455,28 @@ export default function PostDetail({ slug }: { slug: string }) {
           </div>
         </section>
       </div>
+
+      {/* Image lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer animate-fade-in"
+          onClick={() => setLightboxUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="放大预览"
+            className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-6 right-6 w-10 h-10 rounded-full glass flex items-center justify-center text-white hover:bg-white/20 transition-colors cursor-pointer"
+          >
+            &times;
+          </button>
+        </div>
+      )}
     </>
   );
 }
