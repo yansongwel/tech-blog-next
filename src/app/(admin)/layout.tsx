@@ -19,6 +19,7 @@ import {
 import { useState, useEffect } from "react";
 import { ToastProvider } from "@/components/admin/Toast";
 import NotificationBell from "@/components/admin/NotificationBell";
+import ThemeApplier from "@/components/ThemeApplier";
 
 const sidebarLinks = [
   { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
@@ -72,6 +73,7 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-background flex">
+      <ThemeApplier />
       {/* Sidebar */}
       <aside
         className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border transform transition-transform lg:translate-x-0 ${

@@ -52,3 +52,9 @@ export function useSiteConfigLoaded() {
   const getServerSnapshot = useCallback(() => false, []);
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
+
+/** Update a single config value in the local cache (avoids stale ThemeApplier revert) */
+export function updateSiteConfigCache(key: string, value: string) {
+  cache = { ...cache, [key]: value };
+  notify();
+}

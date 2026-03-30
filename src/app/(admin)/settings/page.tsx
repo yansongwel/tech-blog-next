@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Save, Loader2, Check, Monitor, MousePointer, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/components/admin/Toast";
+import { applyThemeClass } from "@/components/ThemeApplier";
+import { updateSiteConfigCache } from "@/lib/useSiteConfig";
 
 const LOADING_TEMPLATES = [
   { key: "matrix", label: "黑客帝国", description: "经典矩阵代码雨", colors: ["#6366f1", "#06b6d4"] },
@@ -182,7 +184,8 @@ export default function SettingsPage() {
                 key={theme.key}
                 onClick={() => {
                   updateField("theme_name", theme.key);
-                  document.documentElement.className = theme.key;
+                  applyThemeClass(theme.key);
+                  updateSiteConfigCache("theme_name", theme.key);
                 }}
                 className={`relative rounded-xl border-2 transition-all cursor-pointer overflow-hidden ${
                   isActive

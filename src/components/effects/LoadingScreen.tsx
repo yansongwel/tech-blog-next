@@ -5,6 +5,15 @@ import { useSiteConfig } from "@/lib/useSiteConfig";
 
 type Template = "matrix" | "cyber" | "terminal" | "radar" | "glitch";
 
+/** Convert hex color (#rrggbb) to "r, g, b" string for rgba() usage */
+function hexToRgb(hex: string): string {
+  const h = hex.replace("#", "");
+  if (h.length >= 6) {
+    return `${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}`;
+  }
+  return "10, 10, 15"; // fallback
+}
+
 interface VisitorInfo {
   ip: string;
   city?: string;
@@ -38,9 +47,9 @@ export default function LoadingScreen({
 
   // ===================== CANVAS EFFECTS =====================
 
-  const drawMatrix = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, drops: number[], fontSize: number) => {
+  const drawMatrix = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, drops: number[], fontSize: number, bg: string) => {
     const chars = "01アイウエオカキクケコサシスセソ<>/{}[]ABCDEF";
-    ctx.fillStyle = "rgba(10, 10, 15, 0.05)";
+    ctx.fillStyle = `rgba(${bg}, 0.05)`;
     ctx.fillRect(0, 0, w, h);
     ctx.font = `${fontSize}px monospace`;
     for (let i = 0; i < drops.length; i++) {
@@ -52,8 +61,8 @@ export default function LoadingScreen({
     }
   }, []);
 
-  const drawCyber = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, frame: number) => {
-    ctx.fillStyle = "rgba(10, 10, 15, 0.1)";
+  const drawCyber = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, frame: number, bg: string) => {
+    ctx.fillStyle = `rgba(${bg}, 0.1)`;
     ctx.fillRect(0, 0, w, h);
     // Hex grid
     const size = 30;
@@ -94,8 +103,8 @@ export default function LoadingScreen({
     }
   }, []);
 
-  const drawRadar = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, frame: number) => {
-    ctx.fillStyle = "rgba(10, 10, 15, 0.08)";
+  const drawRadar = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, frame: number, bg: string) => {
+    ctx.fillStyle = `rgba(${bg}, 0.08)`;
     ctx.fillRect(0, 0, w, h);
     const cx = w / 2, cy = h / 2;
     const maxR = Math.min(w, h) * 0.35;
@@ -150,8 +159,8 @@ export default function LoadingScreen({
     }
   }, []);
 
-  const drawGlitch = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, frame: number) => {
-    ctx.fillStyle = "rgba(10, 10, 15, 0.15)";
+  const drawGlitch = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, frame: number, bg: string) => {
+    ctx.fillStyle = `rgba(${bg}, 0.15)`;
     ctx.fillRect(0, 0, w, h);
     // Scanlines
     for (let y = 0; y < h; y += 3) {
@@ -197,6 +206,10 @@ export default function LoadingScreen({
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
+    // Read theme background for canvas fade overlay
+    const bgHex = getComputedStyle(document.documentElement).getPropertyValue("--background").trim();
+    const bgRgb = hexToRgb(bgHex);
+
     const fontSize = 14;
     const columns = canvas.width / fontSize;
     const drops: number[] = Array(Math.floor(columns)).fill(1);
@@ -207,21 +220,21 @@ export default function LoadingScreen({
       frame++;
       switch (template) {
         case "cyber":
-          drawCyber(ctx, canvas.width, canvas.height, frame);
+          drawCyber(ctx, canvas.width, canvas.height, frame, bgRgb);
           break;
         case "radar":
-          drawRadar(ctx, canvas.width, canvas.height, frame);
+          drawRadar(ctx, canvas.width, canvas.height, frame, bgRgb);
           break;
         case "glitch":
-          drawGlitch(ctx, canvas.width, canvas.height, frame);
+          drawGlitch(ctx, canvas.width, canvas.height, frame, bgRgb);
           break;
         case "terminal":
           // Terminal uses DOM, minimal canvas
-          ctx.fillStyle = "rgba(10, 10, 15, 0.03)";
+          ctx.fillStyle = `rgba(${bgRgb}, 0.03)`;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           break;
         default: // matrix
-          drawMatrix(ctx, canvas.width, canvas.height, drops, fontSize);
+          drawMatrix(ctx, canvas.width, canvas.height, drops, fontSize, bgRgb);
       }
       animId = requestAnimationFrame(animate);
     };
@@ -230,9 +243,11 @@ export default function LoadingScreen({
     return () => cancelAnimationFrame(animId);
   }, [phase, template, drawMatrix, drawCyber, drawRadar, drawGlitch]);
 
-  // Terminal mode: simulated boot log
+  // Terminal mode: simulated boot log (only run once when template is terminal)
+  const bootStarted = useRef(false);
   useEffect(() => {
-    if (template !== "terminal" || (phase !== "loading" && phase !== "ready")) return;
+    if (template !== "terminal" || bootStarted.current) return;
+    bootStarted.current = true;
     const siteName = config.site_name || "TechBlog";
     const lines = [
       `> Booting ${siteName} System v3.0.2...`,
@@ -244,14 +259,15 @@ export default function LoadingScreen({
     let i = 0;
     const timer = setInterval(() => {
       if (i < lines.length) {
-        setTerminalLines((prev) => [...prev, lines[i]]);
+        const line = lines[i];
         i++;
+        setTerminalLines((prev) => [...prev, line]);
       } else {
         clearInterval(timer);
       }
     }, 400);
     return () => clearInterval(timer);
-  }, [template, phase, config.site_name]);
+  }, [template, config.site_name]);
 
   // Add visitor info to terminal after it loads
   useEffect(() => {
@@ -319,7 +335,7 @@ export default function LoadingScreen({
     : "";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0a0a0f] overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background overflow-hidden">
       <canvas ref={canvasRef} className="absolute inset-0" />
 
       <div className="relative z-10 flex flex-col items-center gap-6 max-w-lg px-6">
@@ -360,7 +376,7 @@ export default function LoadingScreen({
         {/* Terminal output (terminal template only) */}
         {template === "terminal" && (
           <div className="w-full max-w-md bg-black/60 border border-green-500/20 rounded-lg p-4 font-mono text-xs space-y-1 max-h-48 overflow-hidden backdrop-blur-sm">
-            {terminalLines.map((line, i) => (
+            {terminalLines.filter(Boolean).map((line, i) => (
               <div
                 key={i}
                 className={`animate-fade-in ${
@@ -410,7 +426,7 @@ export default function LoadingScreen({
               {/* Outer glow ring */}
               <div className="absolute -inset-1 bg-gradient-to-r from-primary via-accent to-primary rounded-2xl opacity-60 blur-md group-hover:opacity-100 group-hover:blur-lg transition-all duration-500 animate-pulse" />
               {/* Button body */}
-              <div className="relative flex items-center gap-3 px-10 py-4 bg-[#0a0a0f]/80 border border-white/10 rounded-2xl backdrop-blur-xl group-hover:border-primary/50 transition-all duration-300 group-hover:scale-105">
+              <div className="relative flex items-center gap-3 px-10 py-4 bg-background/80 border border-white/10 rounded-2xl backdrop-blur-xl group-hover:border-primary/50 transition-all duration-300 group-hover:scale-105">
                 <span className="text-lg font-bold tracking-widest text-white group-hover:text-primary-light transition-colors">
                   探 索 世 界
                 </span>

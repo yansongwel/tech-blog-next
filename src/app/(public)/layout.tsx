@@ -21,7 +21,7 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   const config = useSiteConfig();
-  // null = not yet determined (avoids hydration mismatch)
+  // null = not yet determined (browser APIs unavailable during SSR)
   // true = show loading screen, false = skip
   const [loading, setLoading] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -44,6 +44,11 @@ export default function PublicLayout({
 
   return (
     <>
+      {/* Opaque cover while we check sessionStorage (loading === null).
+          Prevents content from flashing before LoadingScreen can mount. */}
+      {loading === null && (
+        <div className="fixed inset-0 z-[9999] bg-background" />
+      )}
       {loading === true && <LoadingScreen onComplete={() => setLoading(false)} />}
       <ThemeApplier />
       {!isMobile && <ParticleBackground />}

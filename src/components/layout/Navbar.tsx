@@ -18,7 +18,8 @@ import {
   Rss,
 } from "lucide-react";
 import { Dialog, DialogPanel, Transition, TransitionChild } from "@headlessui/react";
-import { useSiteConfig } from "@/lib/useSiteConfig";
+import { useSiteConfig, updateSiteConfigCache } from "@/lib/useSiteConfig";
+import { applyThemeClass } from "@/components/ThemeApplier";
 import { getCategoryIcon, getCategoryColor, getCategoryDesc } from "@/lib/categoryUtils";
 
 interface Category {
@@ -42,9 +43,12 @@ export default function Navbar() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [expandedMobile, setExpandedMobile] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [theme, setTheme] = useState(() =>
-    typeof document !== "undefined" ? document.documentElement.className || "theme-dark-indigo" : "theme-dark-indigo"
-  );
+  // Derive theme from config (single source of truth); fallback to DOM class before config loads
+  const theme = config.theme_name
+    || (typeof document !== "undefined"
+      ? Array.from(document.documentElement.classList).find((c) => c.startsWith("theme-"))
+      : null)
+    || "theme-dark-indigo";
   const dropdownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,13 +69,6 @@ export default function Navbar() {
       .then((data) => { if (Array.isArray(data)) setCategories(data); })
       .catch(() => {});
   }, []);
-
-  // Sync theme state when config loads from API
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (config.theme_name) setTheme(config.theme_name);
-  }, [config.theme_name]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close overlays on route change
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -269,8 +266,8 @@ export default function Navbar() {
               <button
                 onClick={() => {
                   const next = theme === "theme-light" ? "theme-dark-indigo" : "theme-light";
-                  setTheme(next);
-                  document.documentElement.className = next;
+                  applyThemeClass(next);
+                  updateSiteConfigCache("theme_name", next);
                   fetch("/api/admin/settings", {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
