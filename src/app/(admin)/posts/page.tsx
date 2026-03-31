@@ -36,6 +36,9 @@ export default function PostsManagePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchLoading, setBatchLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [pageSize, setPageSize] = useState(15);
+  const [sortBy, setSortBy] = useState<"createdAt" | "viewCount" | "title">("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const toast = useToast();
   const [confirmModal, setConfirmModal] = useState<{open: boolean, title: string, message: string, onConfirm: () => void}>({open: false, title: "", message: "", onConfirm: () => {}});
 
@@ -95,7 +98,7 @@ export default function PostsManagePage() {
     const currentPage = p ?? page;
     const currentStatus = status ?? statusFilter;
     const currentSearch = search ?? searchQuery;
-    const params = new URLSearchParams({ page: String(currentPage), limit: "15" });
+    const params = new URLSearchParams({ page: String(currentPage), limit: String(pageSize) });
     if (currentStatus) params.set("status", currentStatus);
     if (currentSearch) params.set("search", currentSearch);
 
@@ -108,7 +111,7 @@ export default function PostsManagePage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [page, statusFilter, searchQuery]);
+  }, [page, statusFilter, searchQuery, pageSize]);
 
   useEffect(() => {
     fetchPosts();
@@ -186,8 +189,21 @@ export default function PostsManagePage() {
     });
   };
 
-  // Server-side search: posts are already filtered by API
-  const filteredPosts = posts;
+  // Client-side sorting on already-fetched posts
+  const filteredPosts = [...posts].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    if (sortBy === "title") return dir * a.title.localeCompare(b.title);
+    if (sortBy === "viewCount") return dir * (a.viewCount - b.viewCount);
+    return dir * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  });
+
+  const handleSort = (col: typeof sortBy) => {
+    if (sortBy === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortBy(col); setSortDir("desc"); }
+  };
+
+  const sortIcon = (col: typeof sortBy) =>
+    sortBy === col ? (sortDir === "asc" ? " ↑" : " ↓") : "";
 
   return (
     <div>
@@ -291,11 +307,13 @@ export default function PostsManagePage() {
           ))}
         </div>
       ) : filteredPosts.length === 0 ? (
-        <div className="glass rounded-xl p-12 text-center">
-          <p className="text-muted mb-4">{searchQuery ? "未找到匹配文章" : "暂无文章"}</p>
+        <div className="glass rounded-xl p-16 text-center">
+          <FileText className="w-16 h-16 text-muted/30 mx-auto mb-4" />
+          <p className="text-lg text-foreground/70 mb-2">{searchQuery ? "未找到匹配文章" : "还没有文章"}</p>
+          <p className="text-sm text-muted mb-6">{searchQuery ? "试试其他关键词" : "开始创作你的第一篇文章吧"}</p>
           {!searchQuery && (
-            <Link href="/posts/new" className="text-primary-light hover:text-primary cursor-pointer">
-              创建第一篇文章
+            <Link href="/posts/new" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-light text-white rounded-lg font-medium transition-colors cursor-pointer">
+              <Plus className="w-4 h-4" /> 新建文章
             </Link>
           )}
         </div>
@@ -311,11 +329,11 @@ export default function PostsManagePage() {
                         {selectedIds.size === filteredPosts.length && filteredPosts.length > 0 ? <CheckSquare className="w-4 h-4 text-primary-light" /> : <Square className="w-4 h-4" />}
                       </button>
                     </th>
-                    <th className="px-4 sm:px-6 py-3 font-medium">标题</th>
+                    <th className="px-4 sm:px-6 py-3 font-medium cursor-pointer hover:text-foreground select-none" onClick={() => handleSort("title")}>标题{sortIcon("title")}</th>
                     <th className="px-4 sm:px-6 py-3 font-medium hidden sm:table-cell">分类</th>
                     <th className="px-4 sm:px-6 py-3 font-medium">状态</th>
-                    <th className="px-4 sm:px-6 py-3 font-medium hidden md:table-cell">浏览</th>
-                    <th className="px-4 sm:px-6 py-3 font-medium hidden lg:table-cell">创建时间</th>
+                    <th className="px-4 sm:px-6 py-3 font-medium hidden md:table-cell cursor-pointer hover:text-foreground select-none" onClick={() => handleSort("viewCount")}>浏览{sortIcon("viewCount")}</th>
+                    <th className="px-4 sm:px-6 py-3 font-medium hidden lg:table-cell cursor-pointer hover:text-foreground select-none" onClick={() => handleSort("createdAt")}>创建时间{sortIcon("createdAt")}</th>
                     <th className="px-4 sm:px-6 py-3 font-medium">操作</th>
                   </tr>
                 </thead>
@@ -374,27 +392,44 @@ export default function PostsManagePage() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-2 text-muted hover:text-foreground disabled:opacity-30 cursor-pointer rounded-lg hover:bg-white/5"
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-6">
+            <div className="flex items-center gap-2 text-xs text-muted">
+              <span>每页</span>
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                className="bg-surface border border-border rounded px-1.5 py-1 text-foreground cursor-pointer focus:outline-none focus:border-primary"
               >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm text-muted px-3">
-                第 {page} / {totalPages} 页
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-2 text-muted hover:text-foreground disabled:opacity-30 cursor-pointer rounded-lg hover:bg-white/5"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <span>条 · 共 {total} 篇</span>
             </div>
-          )}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="p-2 text-muted hover:text-foreground disabled:opacity-30 cursor-pointer rounded-lg hover:bg-white/5"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-muted px-2">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="p-2 text-muted hover:text-foreground disabled:opacity-30 cursor-pointer rounded-lg hover:bg-white/5"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
         </>
       )}
       <ConfirmModal open={confirmModal.open} title={confirmModal.title} message={confirmModal.message} danger onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(prev => ({...prev, open: false})); }} onCancel={() => setConfirmModal(prev => ({...prev, open: false}))} />

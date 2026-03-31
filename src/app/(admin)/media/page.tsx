@@ -157,11 +157,12 @@ export default function MediaPage() {
           ))}
         </div>
       ) : media.length === 0 ? (
-        <div className="glass rounded-xl p-12 text-center">
-          <ImageIcon className="w-12 h-12 text-muted mx-auto mb-4" />
-          <p className="text-muted mb-4">暂无媒体文件</p>
-          <label className="text-primary-light hover:text-primary cursor-pointer">
-            上传第一张图片
+        <div className="glass rounded-xl p-16 text-center">
+          <ImageIcon className="w-16 h-16 text-muted/30 mx-auto mb-4" />
+          <p className="text-lg text-foreground/70 mb-2">媒体库为空</p>
+          <p className="text-sm text-muted mb-6">上传图片来丰富你的文章内容</p>
+          <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-light text-white rounded-lg font-medium transition-colors cursor-pointer">
+            上传图片
             <input
               type="file"
               accept="image/*"

@@ -241,9 +241,10 @@ export default function CommentsManagePage() {
           ))}
         </div>
       ) : comments.length === 0 ? (
-        <div className="glass rounded-xl p-12 text-center">
-          <MessageSquare className="w-12 h-12 text-muted mx-auto mb-4" />
-          <p className="text-muted">暂无评论</p>
+        <div className="glass rounded-xl p-16 text-center">
+          <MessageSquare className="w-16 h-16 text-muted/30 mx-auto mb-4" />
+          <p className="text-lg text-foreground/70 mb-2">还没有评论</p>
+          <p className="text-sm text-muted">读者们还没有留下评论，文章发布后他们就会来啦</p>
         </div>
       ) : (
         <div className="space-y-3">

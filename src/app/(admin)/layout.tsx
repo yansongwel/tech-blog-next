@@ -22,6 +22,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ToastProvider } from "@/components/admin/Toast";
 import NotificationBell from "@/components/admin/NotificationBell";
 import CommandPalette from "@/components/admin/CommandPalette";
+import Breadcrumb from "@/components/admin/Breadcrumb";
 import ThemeApplier from "@/components/ThemeApplier";
 
 const sidebarLinks = [
@@ -201,7 +202,8 @@ export default function AdminLayout({
 
         {/* Content */}
         <main className="flex-1 p-6 overflow-y-auto">
-          <ToastProvider>{children}</ToastProvider>
+          <Breadcrumb />
+          <ToastProvider><div className="animate-fade-in">{children}</div></ToastProvider>
         </main>
       </div>
 

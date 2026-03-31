@@ -28,7 +28,8 @@ export default function NewPostPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
-  const [autoSaved, setAutoSaved] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [lastSaveTime, setLastSaveTime] = useState("");
   const [importMsg, setImportMsg] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [initialContent, setInitialContent] = useState("");
@@ -107,6 +108,7 @@ export default function NewPostPage() {
   useEffect(() => {
     const timer = setInterval(() => {
       if (!title && !editorContentRef.current) return;
+      setAutoSaveStatus("saving");
       const draft = {
         title,
         excerpt,
@@ -115,8 +117,10 @@ export default function NewPostPage() {
         content: editorContentRef.current,
       };
       localStorage.setItem("post_draft", JSON.stringify(draft));
-      setAutoSaved(true);
-      setTimeout(() => setAutoSaved(false), 2000);
+      const now = new Date();
+      setLastSaveTime(`${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`);
+      setAutoSaveStatus("saved");
+      setTimeout(() => setAutoSaveStatus("idle"), 3000);
     }, 30000);
     return () => clearInterval(timer);
   }, [title, excerpt, categoryId, tags]);
@@ -196,8 +200,11 @@ export default function NewPostPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-2xl font-bold text-foreground">新建文章</h1>
-          {autoSaved && (
-            <span className="text-xs text-green-400 ml-2">已自动保存</span>
+          {autoSaveStatus === "saving" && (
+            <span className="text-xs text-muted ml-2 animate-pulse">保存中...</span>
+          )}
+          {autoSaveStatus === "saved" && lastSaveTime && (
+            <span className="text-xs text-green-400 ml-2">已保存 {lastSaveTime}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
