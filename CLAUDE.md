@@ -334,37 +334,136 @@ model ForumVote {
 - 回复被采纳 +10 分
 - 等级计算：`level = Math.floor(Math.sqrt(points / 10)) + 1`
 
-### Phase 4: 后台管理升级
+### Phase 4-5: 已完成（用户管理+论坛管理+渲染优化+用户主页）
 
-**目标**：提升后台 UI 质量和功能完整度
+> Phase 4-5 已在 commit `7ea3ad4` ~ `11518e4` 中完成。
+
+---
+
+## 后台专业化升级路线图（Phase 6-8）
+
+对标 Ghost / Halo / shadcn-dashboard-starter，按影响力分 3 个 Tier 执行。
+
+### Phase 6: Tier 1 — 立竿见影（体感提升最大的 5 项）
 
 **参考项目**：
-- [Kiranism/next-shadcn-dashboard-starter](https://github.com/Kiranism/next-shadcn-dashboard-starter)（5.8k stars）— UI 组件和布局参考
-- 不要全盘引入 shadcn/ui，按需引入需要的组件模式
+- [Ghost Admin](https://github.com/TryGhost/Ghost)（49k stars）— 仪表盘分析、骨架屏、页面过渡
+- [next-shadcn-dashboard-starter](https://github.com/Kiranism/next-shadcn-dashboard-starter)（25k stars）— 可折叠侧边栏、Command Palette、数据表格
 
-**升级项**：
-- **仪表盘增强**：增加论坛统计（帖子数、活跃用户、热门话题趋势图）
-- **用户管理页**：`/admin/users` — 查看/搜索用户列表、修改角色、禁用账号
-- **论坛管理页**：`/admin/forum` — 版块 CRUD、帖子审核/置顶/精华/锁定
-- **Markdown 渲染优化**：
-  - 代码块：行号显示、语言标签、一键复制、代码折叠（长代码块）
-  - 表格：响应式滚动、斑马纹、排序（可选）
-  - 图片：点击放大（lightbox）、懒加载
-  - 数学公式：KaTeX 支持（可选）
-  - Mermaid 图表：已有基础，确保渲染正确
-- **批量操作**：帖子/评论批量删除/审核
+**6.1 骨架屏替换全部 spinner**
 
-### Phase 5: 用户个人主页
+所有后台页面的加载状态，从 `<Loader2 className="animate-spin" />` 替换为**骨架屏**（skeleton screen）。骨架屏是灰色脉冲矩形，形状匹配最终布局。
 
-**目标**：每个注册用户拥有公开个人主页
+涉及页面：dashboard、posts、comments、media、users、forum-manage、subscribers、categories、tag-manager、friend-links、settings
 
-**页面路径**：`/profile/[username]`
+实现方式：
+- 在每个页面的 loading 分支中，用 `<div className="animate-pulse bg-surface rounded" />` 组合模拟最终布局
+- 表格页：骨架行（5-8 行，每行 3-5 个灰色块）
+- 仪表盘：骨架卡片（5 个矩形）+ 骨架图表区域
+- 不新建组件，直接在每个页面的 `{loading && ...}` 分支中内联
 
-**页面内容**：
-- 用户头像（支持上传到 MinIO）、用户名、简介、社交链接
-- 活动统计：发帖数、回复数、获赞数、积分、等级
-- 帖子/回复 Tab 切换列表
-- 个人资料编辑页（仅本人可见）：`/profile/settings`
+**6.2 仪表盘趋势对比（vs 上周 + 百分比）**
+
+每个 stat card 数字旁边显示**与上周的对比百分比**：`+12.5%↑`（绿色）或 `-3.2%↓`（红色）。
+
+实现：
+- `statsService.ts` 扩展：同时查询当前 7 天和上一个 7 天的数据
+- 返回 `{ current, previous, changePercent }` 结构
+- 前端 stat card 显示箭头和百分比
+
+**6.3 仪表盘时间范围选择器**
+
+在趋势图上方添加按钮组：`今天 | 7天 | 30天 | 90天`
+
+实现：
+- dashboard 页面添加 `range` state
+- 传递给 stats API：`/api/admin/stats?range=7d`
+- statsService 根据 range 动态计算日期范围
+- 趋势图和 stat cards 都响应时间范围变化
+
+**6.4 Cmd+K 全局命令面板（Command Palette）**
+
+按 `Ctrl+K` / `Cmd+K` 弹出全屏模态搜索框，支持：
+- 快速跳转：输入 "文章"、"设置"、"用户" 等关键词直接跳转
+- 搜索文章：实时搜索文章标题
+- 快捷操作："新建文章"、"新建帖子"
+
+实现：
+- 新建组件 `src/components/admin/CommandPalette.tsx`
+- admin layout 中注册全局键盘监听 `Ctrl+K`
+- 命令列表：所有 sidebar 页面 + 快捷操作
+- 搜索时调用 `/api/admin/posts?search=xxx` 实时过滤
+- UI：毛玻璃全屏遮罩 + 居中搜索框 + 结果列表 + 键盘上下选择
+
+**6.5 可折叠侧边栏（icons-only 模式）**
+
+添加折叠按钮，折叠后侧边栏只显示图标（宽度从 256px → 64px），鼠标 hover 图标显示 tooltip。
+
+实现：
+- admin layout 添加 `collapsed` state（持久化到 localStorage）
+- 折叠态：只显示图标，文字隐藏，宽度 64px
+- 展开态：图标 + 文字，宽度 256px（现有样式）
+- 过渡动画：`transition-all duration-200`
+- 移动端不受影响（移动端始终用抽屉模式）
+
+### Phase 7: Tier 2 — 专业打磨（6 项）
+
+**7.1 面包屑导航**
+
+在每个页面顶部 header 下方显示路径面包屑：`仪表盘 > 文章管理 > 编辑文章`
+
+实现：
+- 新建组件 `src/components/admin/Breadcrumb.tsx`
+- 从 pathname 解析面包屑层级
+- 在 admin layout 的 main 区域顶部渲染
+
+**7.2 文章列表增强（列排序 + 列显隐 + 分页大小）**
+
+- 点击表头排序（标题、浏览量、创建时间）
+- 列显隐下拉菜单（选择显示哪些列）
+- 分页大小选择（10 / 20 / 50）
+
+**7.3 编辑器自动保存指示器**
+
+编辑器页面顶部显示 "已保存 12:34:56" / "保存中..." / "未保存的更改" 状态文字。
+
+**7.4 空状态插画和引导**
+
+所有列表为空时，显示 SVG 图标 + 描述文字 + 行动按钮：
+- 文章列表空："还没有文章，开始创作第一篇吧" + [新建文章] 按钮
+- 评论为空："还没有评论" + 插画
+- 论坛为空："还没有帖子" + [去论坛看看] 按钮
+
+**7.5 页面切换动画**
+
+admin layout 的 main content 区域添加 `animate-fade-in` 入场动画。每次 pathname 变化时触发。
+
+**7.6 仪表盘活动日志**
+
+仪表盘底部新增 "最近活动" 卡片，显示最近 10 条管理操作：
+- "发布了文章《xxx》" / "审核了评论" / "修改了用户角色"
+- 需要新增 `AdminLog` 数据模型记录操作
+
+### Phase 8: Tier 3 — 锦上添花（4 项）
+
+**8.1 仪表盘快速草稿**
+
+仪表盘右侧添加 "快速草稿" 卡片：标题输入 + 简短内容 + [保存草稿] 按钮。
+
+**8.2 媒体库拖拽上传区域**
+
+媒体库页面顶部添加大面积可见的拖拽区域（虚线边框 + "拖放文件到此处" 文字 + 图标）。
+
+**8.3 键盘快捷键**
+
+- `Ctrl+S`：保存文章/设置
+- `Ctrl+Enter`：发布文章
+- `Ctrl+K`：打开命令面板（Phase 6.4）
+- `Escape`：关闭模态框
+
+**8.4 通知中心完整页面**
+
+新增 `/notifications` 页面，完整显示所有历史通知，支持标记已读/未读。
 
 ---
 
