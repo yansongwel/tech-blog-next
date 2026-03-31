@@ -98,9 +98,10 @@ export default function Navbar() {
   const handleLogout = async () => {
     setCurrentUser(null);
     setUserMenuOpen(false);
-    // NextAuth v5: signOut via next-auth/react (handles CSRF token automatically)
     const { signOut } = await import("next-auth/react");
-    await signOut({ redirect: true, redirectTo: "/" });
+    // redirect: false — 不让 NextAuth 做服务端跳转（避免 NEXTAUTH_URL 指向 localhost）
+    await signOut({ redirect: false });
+    window.location.href = "/";
   };
 
   // Scroll & reading progress
