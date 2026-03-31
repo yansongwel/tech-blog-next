@@ -177,8 +177,13 @@ export default function FriendLinksPage() {
 
       {/* Links list */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="glass rounded-xl p-5 flex items-center gap-4">
+              <div className="w-12 h-12 bg-surface rounded-full" />
+              <div className="flex-1"><div className="h-4 bg-surface rounded w-24 mb-2" /><div className="h-3 bg-surface rounded w-40" /></div>
+            </div>
+          ))}
         </div>
       ) : links.length === 0 ? (
         <div className="glass rounded-xl p-12 text-center">

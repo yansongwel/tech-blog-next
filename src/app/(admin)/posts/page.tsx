@@ -275,8 +275,20 @@ export default function PostsManagePage() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="glass rounded-xl overflow-hidden animate-pulse">
+          <div className="border-b border-border bg-surface/50 px-4 py-3 flex gap-4">
+            {[...Array(6)].map((_, i) => <div key={i} className="h-3 bg-surface rounded w-16" />)}
+          </div>
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-4 border-b border-border/30">
+              <div className="w-4 h-4 bg-surface rounded" />
+              <div className="h-4 bg-surface rounded flex-1" />
+              <div className="h-4 bg-surface rounded w-16" />
+              <div className="h-5 bg-surface rounded-full w-14" />
+              <div className="h-4 bg-surface rounded w-12" />
+              <div className="h-4 bg-surface rounded w-20" />
+            </div>
+          ))}
         </div>
       ) : filteredPosts.length === 0 ? (
         <div className="glass rounded-xl p-12 text-center">

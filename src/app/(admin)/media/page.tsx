@@ -148,8 +148,13 @@ export default function MediaPage() {
       <p className="text-xs text-muted mb-4">支持 JPG、PNG、GIF、WebP、SVG，单文件最大 10MB</p>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 animate-pulse">
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="glass rounded-xl overflow-hidden">
+              <div className="aspect-square bg-surface" />
+              <div className="p-2"><div className="h-3 bg-surface rounded w-3/4" /></div>
+            </div>
+          ))}
         </div>
       ) : media.length === 0 ? (
         <div className="glass rounded-xl p-12 text-center">

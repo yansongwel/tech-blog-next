@@ -149,8 +149,18 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 bg-surface rounded w-32" />
+        <div className="glass rounded-xl p-6">
+          <div className="h-4 bg-surface rounded w-20 mb-4" />
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[...Array(5)].map((_, i) => <div key={i} className="h-20 bg-surface rounded-xl" />)}
+          </div>
+        </div>
+        <div className="glass rounded-xl p-6">
+          <div className="h-4 bg-surface rounded w-24 mb-4" />
+          <div className="space-y-4">{[...Array(4)].map((_, i) => <div key={i} className="h-10 bg-surface rounded-lg" />)}</div>
+        </div>
       </div>
     );
   }

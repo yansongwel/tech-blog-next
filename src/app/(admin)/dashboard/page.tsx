@@ -34,7 +34,25 @@ interface Stats {
   totalLikes: number;
   totalComments: number;
   totalSubscribers: number;
+  totalUsers: number;
+  totalForumPosts: number;
+  totalForumReplies: number;
 }
+
+interface Changes {
+  posts: number;
+  comments: number;
+  likes: number;
+  users: number;
+}
+
+type RangeKey = "1d" | "7d" | "30d" | "90d";
+const RANGE_LABELS: { key: RangeKey; label: string }[] = [
+  { key: "1d", label: "今天" },
+  { key: "7d", label: "7 天" },
+  { key: "30d", label: "30 天" },
+  { key: "90d", label: "90 天" },
+];
 
 interface RecentPost {
   id: string;
@@ -57,52 +75,82 @@ interface CategoryStat {
 }
 
 const statConfig = [
-  { key: "totalViews", label: "总浏览量", icon: Eye },
-  { key: "totalLikes", label: "总点赞数", icon: Heart },
-  { key: "totalComments", label: "总评论数", icon: MessageCircle },
-  { key: "totalSubscribers", label: "订阅用户", icon: Users },
-  { key: "totalPosts", label: "文章总数", icon: FileText },
+  { key: "totalViews", label: "总浏览量", icon: Eye, changeKey: null },
+  { key: "totalLikes", label: "总点赞数", icon: Heart, changeKey: "likes" as const },
+  { key: "totalComments", label: "总评论数", icon: MessageCircle, changeKey: "comments" as const },
+  { key: "totalUsers", label: "注册用户", icon: Users, changeKey: "users" as const },
+  { key: "totalPosts", label: "文章总数", icon: FileText, changeKey: "posts" as const },
 ] as const;
 
 const PIE_COLORS = ["#f97316", "#6366f1", "#06b6d4", "#22c55e", "#eab308", "#0ea5e9", "#ec4899"];
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [changes, setChanges] = useState<Changes | null>(null);
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
   const [trend, setTrend] = useState<TrendItem[]>([]);
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [range, setRange] = useState<RangeKey>("7d");
   const [pending, setPending] = useState<{ pendingComments: number; draftPosts: number; unconfirmedSubscribers: number } | null>(null);
 
-  const loadStats = () => {
-    setLoading(true);
-    setError("");
-    // Fetch pending items in parallel
-    fetch("/api/admin/pending").then((r) => r.json()).then((d) => setPending(d)).catch(() => {});
-    fetch("/api/admin/stats")
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/pending").then((r) => r.json()).then((d) => { if (!cancelled) setPending(d); }).catch(() => {});
+    fetch(`/api/admin/stats?range=${range}`)
       .then((res) => {
         if (!res.ok) throw new Error("加载失败");
         return res.json();
       })
       .then((data) => {
+        if (cancelled) return;
         setStats(data.stats);
+        setChanges(data.changes || null);
         setRecentPosts(data.recentPosts || []);
         setTrend(data.trend || []);
         setCategoryStats(data.categoryStats || []);
+        setLoading(false);
       })
-      .catch((err) => setError(err.message || "加载仪表盘数据失败"))
-      .finally(() => setLoading(false));
-  };
-
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => { loadStats(); }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+      .catch((err) => { if (!cancelled) { setError(err.message || "加载仪表盘数据失败"); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [range]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6 animate-pulse">
+        {/* Stat cards skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="glass rounded-xl p-5">
+              <div className="h-3 bg-surface rounded w-16 mb-3" />
+              <div className="h-7 bg-surface rounded w-20 mb-2" />
+              <div className="h-2 bg-surface rounded w-12" />
+            </div>
+          ))}
+        </div>
+        {/* Charts skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 glass rounded-xl p-6">
+            <div className="h-4 bg-surface rounded w-24 mb-4" />
+            <div className="h-48 bg-surface rounded" />
+          </div>
+          <div className="glass rounded-xl p-6">
+            <div className="h-4 bg-surface rounded w-24 mb-4" />
+            <div className="h-48 bg-surface rounded-full w-48 mx-auto" />
+          </div>
+        </div>
+        {/* Recent posts skeleton */}
+        <div className="glass rounded-xl p-6">
+          <div className="h-4 bg-surface rounded w-24 mb-4" />
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4 py-3 border-b border-border/30 last:border-0">
+              <div className="h-4 bg-surface rounded flex-1" />
+              <div className="h-4 bg-surface rounded w-16" />
+              <div className="h-4 bg-surface rounded w-12" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -111,7 +159,7 @@ export default function DashboardPage() {
     return (
       <div className="text-center py-20">
         <p className="text-red-400 mb-4">{error}</p>
-        <button onClick={loadStats} className="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-light transition-colors">
+        <button onClick={() => setRange(range)} className="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-light transition-colors">
           重新加载
         </button>
       </div>
@@ -177,24 +225,49 @@ export default function DashboardPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {statConfig.map((item) => (
-          <div key={item.key} className="glass rounded-xl p-5 card-hover">
-            <div className="flex items-center justify-between mb-3">
-              <item.icon className="w-5 h-5 text-primary-light" />
+        {statConfig.map((item) => {
+          const change = item.changeKey && changes ? changes[item.changeKey] : null;
+          return (
+            <div key={item.key} className="glass rounded-xl p-5 card-hover">
+              <div className="flex items-center justify-between mb-3">
+                <item.icon className="w-5 h-5 text-primary-light" />
+                {change !== null && change !== 0 && (
+                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                    change > 0 ? "text-green-400 bg-green-500/10" : "text-red-400 bg-red-500/10"
+                  }`}>
+                    {change > 0 ? "+" : ""}{change}%{change > 0 ? "↑" : "↓"}
+                  </span>
+                )}
+              </div>
+              <p className="text-2xl font-bold text-foreground">
+                {stats ? stats[item.key].toLocaleString() : "—"}
+              </p>
+              <p className="text-xs text-muted mt-1">{item.label}</p>
             </div>
-            <p className="text-2xl font-bold text-foreground">
-              {stats ? stats[item.key].toLocaleString() : "—"}
-            </p>
-            <p className="text-xs text-muted mt-1">{item.label}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Trend chart */}
         <div className="lg:col-span-2 glass rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">近 7 天趋势</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-foreground">访问趋势</h2>
+            <div className="flex gap-1 p-0.5 glass rounded-lg">
+              {RANGE_LABELS.map((r) => (
+                <button
+                  key={r.key}
+                  onClick={() => setRange(r.key)}
+                  className={`px-2.5 py-1 text-xs rounded transition-colors cursor-pointer ${
+                    range === r.key ? "bg-primary/15 text-primary-light" : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trend}>

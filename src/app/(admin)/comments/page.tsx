@@ -227,8 +227,18 @@ export default function CommentsManagePage() {
           <button onClick={() => fetchComments(page)} className="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-light transition-colors">重新加载</button>
         </div>
       ) : loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="space-y-3 animate-pulse">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="glass rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 bg-surface rounded-full" />
+                <div className="h-3 bg-surface rounded w-24" />
+                <div className="h-3 bg-surface rounded w-16 ml-auto" />
+              </div>
+              <div className="h-3 bg-surface rounded w-full mb-2" />
+              <div className="h-3 bg-surface rounded w-3/4" />
+            </div>
+          ))}
         </div>
       ) : comments.length === 0 ? (
         <div className="glass rounded-xl p-12 text-center">

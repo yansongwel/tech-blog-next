@@ -18,9 +18,10 @@ import {
   Users,
   MessageCircle,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ToastProvider } from "@/components/admin/Toast";
 import NotificationBell from "@/components/admin/NotificationBell";
+import CommandPalette from "@/components/admin/CommandPalette";
 import ThemeApplier from "@/components/ThemeApplier";
 
 const sidebarLinks = [
@@ -45,7 +46,28 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [userName, setUserName] = useState("");
+  const [cmdOpen, setCmdOpen] = useState(false);
+
+  // Restore collapsed state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("admin_sidebar_collapsed");
+    if (saved === "true") setCollapsed(true);
+  }, []);
+
+  // Ctrl+K / Cmd+K to open command palette
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      setCmdOpen((prev) => !prev);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   // Skip auth check for login page
   const isLoginPage = pathname === "/login";
@@ -81,18 +103,19 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-background flex">
       <ThemeApplier />
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border transform transition-transform lg:translate-x-0 ${
+        className={`fixed lg:static inset-y-0 left-0 z-50 bg-surface border-r border-border transform transition-all duration-200 lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } ${collapsed ? "lg:w-16" : "lg:w-64"} w-64`}
       >
-        <div className="flex items-center justify-between h-16 px-6 border-b border-border">
+        <div className={`flex items-center h-16 border-b border-border ${collapsed ? "justify-center px-2" : "justify-between px-6"}`}>
           <Link href="/" className="flex items-center gap-2 cursor-pointer">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-xs">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-xs shrink-0">
               T
             </div>
-            <span className="font-bold gradient-text">TechBlog Admin</span>
+            {!collapsed && <span className="font-bold gradient-text">TechBlog Admin</span>}
           </Link>
           <button
             className="lg:hidden text-muted cursor-pointer"
@@ -102,30 +125,51 @@ export default function AdminLayout({
           </button>
         </div>
 
-        <nav className="p-4 space-y-1">
+        <nav className={`space-y-1 ${collapsed ? "p-2" : "p-4"}`}>
           {sidebarLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+              title={collapsed ? link.label : undefined}
+              className={`flex items-center gap-3 rounded-lg text-sm transition-colors cursor-pointer ${
+                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
+              } ${
                 pathname === link.href
                   ? "bg-primary/10 text-primary-light"
                   : "text-muted hover:text-foreground hover:bg-white/5"
               }`}
             >
-              <link.icon className="w-5 h-5" />
-              {link.label}
+              <link.icon className="w-5 h-5 shrink-0" />
+              {!collapsed && link.label}
             </Link>
           ))}
         </nav>
 
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className={`absolute bottom-4 ${collapsed ? "left-2 right-2" : "left-4 right-4"} space-y-1`}>
+          {/* Collapse toggle (desktop only) */}
+          <button
+            onClick={() => {
+              const next = !collapsed;
+              setCollapsed(next);
+              localStorage.setItem("admin_sidebar_collapsed", String(next));
+            }}
+            className={`hidden lg:flex items-center gap-3 w-full rounded-lg text-sm text-muted hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer ${
+              collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
+            }`}
+            title={collapsed ? "展开侧边栏" : "折叠侧边栏"}
+          >
+            <Menu className={`w-5 h-5 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+            {!collapsed && "折叠"}
+          </button>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+            title={collapsed ? "退出登录" : undefined}
+            className={`flex items-center gap-3 w-full rounded-lg text-sm text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer ${
+              collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
+            }`}
           >
-            <LogOut className="w-5 h-5" />
-            退出登录
+            <LogOut className="w-5 h-5 shrink-0" />
+            {!collapsed && "退出登录"}
           </button>
         </div>
       </aside>
