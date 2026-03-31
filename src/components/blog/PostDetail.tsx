@@ -131,12 +131,39 @@ export default function PostDetail({ slug }: { slug: string }) {
     const withToolbars = html.replace(
       /<pre><code class="language-(\w+)">/g,
       (_, rawLang) => {
-        // Defense-in-depth: strip any non-alphanumeric chars (regex already limits to \w)
         const lang = rawLang.replace(/[^a-zA-Z0-9]/g, "");
-        return `<pre style="position:relative;padding-top:2.5rem"><div class="code-toolbar" style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;font-size:12px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);border-radius:12px 12px 0 0"><span style="font-family:monospace">${lang.toUpperCase()}</span><button class="copy-btn" style="padding:2px 8px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;border-radius:4px;cursor:pointer;font-size:12px" onclick="${copyFn}">复制</button></div><code class="language-${lang}">`;
+        return `<pre class="code-enhanced" style="position:relative;padding-top:2.5rem"><div class="code-toolbar" style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;font-size:12px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);border-radius:12px 12px 0 0;z-index:1"><span style="font-family:monospace">${lang.toUpperCase()}</span><button class="copy-btn" style="padding:2px 8px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;border-radius:4px;cursor:pointer;font-size:12px" onclick="${copyFn}">复制</button></div><code class="language-${lang}">`;
       }
     );
-    return { safeHtml: withToolbars, tocHeadings: headings };
+
+    // Add line numbers to code blocks and collapse for long blocks (>15 lines)
+    const withLineNumbers = withToolbars.replace(
+      /<code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g,
+      (match, lang, codeContent) => {
+        const lines = codeContent.split("\n");
+        const lineCount = lines.length;
+        const isLong = lineCount > 15;
+        const lineNums = lines.map((_: string, i: number) =>
+          `<span class="code-line-num" style="display:block;color:rgba(255,255,255,0.2);user-select:none;text-align:right;padding-right:1em;min-width:2.5em">${i + 1}</span>`
+        ).join("");
+        const codeBody = `<div style="display:grid;grid-template-columns:auto 1fr;overflow-x:auto${isLong ? ";max-height:400px" : ""}" class="code-body${isLong ? " code-collapsed" : ""}"><div style="padding:0.5em 0">${lineNums}</div><div style="padding:0.5em 0;overflow-x:auto"><code class="language-${lang}">${codeContent}</code></div></div>`;
+        const collapseBtn = isLong
+          ? `<button class="code-collapse-btn" style="display:block;width:100%;padding:4px;text-align:center;font-size:11px;color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.03);border:none;border-top:1px solid rgba(255,255,255,0.06);cursor:pointer" onclick="var b=this.previousElementSibling;var isCollapsed=b.style.maxHeight==='400px';b.style.maxHeight=isCollapsed?'none':'400px';this.textContent=isCollapsed?'收起 ▲':'展开全部 (${lineCount} 行) ▼'">展开全部 (${lineCount} 行) ▼</button>`
+          : "";
+        return `${codeBody}${collapseBtn}</pre>`;
+      }
+    );
+
+    // Add click-to-zoom to images (lightbox)
+    const withLightbox = withLineNumbers.replace(
+      /<img ([^>]*?)>/g,
+      (match, attrs) => {
+        if (attrs.includes("data-no-lightbox")) return match;
+        return `<img ${attrs} style="cursor:zoom-in" onclick="(function(img){var o=document.createElement('div');o.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out';o.onclick=function(){o.remove()};var c=document.createElement('img');c.src=img.src;c.style.cssText='max-width:90vw;max-height:90vh;border-radius:12px';o.appendChild(c);document.body.appendChild(o)})(this)">`;
+      }
+    );
+
+    return { safeHtml: withLightbox, tocHeadings: headings };
   }, [post]);
 
   // Signal content is rendered (for highlighting)

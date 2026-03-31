@@ -4,7 +4,7 @@ import { redis } from "@/lib/redis";
 const STATS_TTL = 90 * 24 * 3600; // 90 days
 
 export async function getDashboardStats() {
-  const [totalPosts, totalViews, totalLikes, totalComments, totalSubscribers, recentPosts] =
+  const [totalPosts, totalViews, totalLikes, totalComments, totalSubscribers, recentPosts, totalUsers, totalForumPosts, totalForumReplies] =
     await Promise.all([
       prisma.post.count(),
       prisma.post.aggregate({ _sum: { viewCount: true } }),
@@ -19,6 +19,9 @@ export async function getDashboardStats() {
           _count: { select: { likes: true, comments: true } },
         },
       }),
+      prisma.user.count(),
+      prisma.forumPost.count(),
+      prisma.forumReply.count(),
     ]);
 
   // 7-day trend from Redis (batch mget)
@@ -56,6 +59,9 @@ export async function getDashboardStats() {
       totalLikes,
       totalComments,
       totalSubscribers,
+      totalUsers,
+      totalForumPosts,
+      totalForumReplies,
     },
     recentPosts,
     trend,

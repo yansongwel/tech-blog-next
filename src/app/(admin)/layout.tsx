@@ -15,6 +15,8 @@ import {
   FolderTree,
   Mail,
   Tag,
+  Users,
+  MessageCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ToastProvider } from "@/components/admin/Toast";
@@ -25,6 +27,8 @@ const sidebarLinks = [
   { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
   { href: "/posts", label: "文章管理", icon: FileText },
   { href: "/comments", label: "评论管理", icon: MessageSquare },
+  { href: "/forum-manage", label: "论坛管理", icon: MessageCircle },
+  { href: "/users", label: "用户管理", icon: Users },
   { href: "/media", label: "媒体库", icon: Image },
   { href: "/categories", label: "分类管理", icon: FolderTree },
   { href: "/tag-manager", label: "标签管理", icon: Tag },
