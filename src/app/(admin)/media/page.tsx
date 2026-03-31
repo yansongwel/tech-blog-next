@@ -145,7 +145,25 @@ export default function MediaPage() {
         </div>
       )}
 
-      <p className="text-xs text-muted mb-4">支持 JPG、PNG、GIF、WebP、SVG，单文件最大 10MB</p>
+      {/* Drag-and-drop upload zone */}
+      <label
+        className="block mb-6 border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer group"
+        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-primary", "bg-primary/5"); }}
+        onDragLeave={(e) => { e.currentTarget.classList.remove("border-primary", "bg-primary/5"); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.currentTarget.classList.remove("border-primary", "bg-primary/5");
+          if (e.dataTransfer.files.length) {
+            const fakeEvent = { target: { files: e.dataTransfer.files } } as unknown as React.ChangeEvent<HTMLInputElement>;
+            handleUpload(fakeEvent);
+          }
+        }}
+      >
+        <Upload className="w-10 h-10 text-muted/40 mx-auto mb-3 group-hover:text-primary/60 transition-colors" />
+        <p className="text-sm text-foreground/70 mb-1">拖放文件到此处，或点击选择</p>
+        <p className="text-xs text-muted">支持 JPG、PNG、GIF、WebP、SVG，单文件最大 10MB</p>
+        <input type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" />
+      </label>
 
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 animate-pulse">

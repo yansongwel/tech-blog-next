@@ -7,7 +7,6 @@ import {
   MessageCircle,
   Users,
   FileText,
-  Loader2,
   Plus,
   Image,
   Settings,
@@ -354,8 +353,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent posts table */}
-      <div className="glass rounded-xl p-6">
+      {/* Quick Draft + Recent Posts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Quick Draft */}
+        <div className="glass rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">快速草稿</h2>
+          <QuickDraft />
+        </div>
+
+        {/* Recent posts table */}
+        <div className="lg:col-span-2 glass rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">最近文章</h2>
           <a href="/posts" className="text-sm text-primary-light hover:text-primary cursor-pointer">
@@ -402,6 +409,70 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
+      </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickDraft() {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          content: content ? `<p>${content}</p>` : "<p></p>",
+          status: "DRAFT",
+          categoryId: "",
+          tags: [],
+        }),
+      });
+      if (res.ok) {
+        setTitle("");
+        setContent("");
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch {
+      // ignore
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      <input
+        type="text"
+        placeholder="标题..."
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary text-sm"
+      />
+      <textarea
+        placeholder="写下你的想法..."
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        rows={3}
+        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:border-primary text-sm resize-none"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving || !title.trim()}
+          className="px-4 py-2 bg-primary hover:bg-primary-light text-white rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+        >
+          {saving ? "保存中..." : "保存草稿"}
+        </button>
+        {saved && <span className="text-xs text-green-400">已保存！</span>}
       </div>
     </div>
   );

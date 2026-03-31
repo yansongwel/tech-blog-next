@@ -125,6 +125,24 @@ export default function NewPostPage() {
     return () => clearInterval(timer);
   }, [title, excerpt, categoryId, tags]);
 
+  // Keyboard shortcuts: Ctrl+S = save draft, Ctrl+Enter = publish
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        handleSaveRef.current("DRAFT");
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleSaveRef.current("PUBLISHED");
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  const handleSaveRef = useRef<(status: "DRAFT" | "PUBLISHED") => void>(() => {});
+
   const handleSave = async (status: "DRAFT" | "PUBLISHED") => {
     if (!title.trim()) {
       setError("请输入文章标题");
@@ -177,6 +195,9 @@ export default function NewPostPage() {
       setSaving(false);
     }
   };
+
+  // Keep ref updated for keyboard shortcuts
+  handleSaveRef.current = handleSave;
 
   // Flatten categories for select
   const allCategories: { id: string; name: string; isChild: boolean }[] = [];
