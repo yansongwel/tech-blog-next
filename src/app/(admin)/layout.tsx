@@ -54,6 +54,9 @@ export default function AdminLayout({
       .then((data) => {
         if (!data?.user) {
           router.push("/login");
+        } else if (data.user.role === "MEMBER") {
+          // MEMBER users cannot access admin panel
+          router.push("/");
         } else {
           setUserName(data.user.name || data.user.email || "Admin");
         }

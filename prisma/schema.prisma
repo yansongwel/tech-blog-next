@@ -9,6 +9,7 @@ datasource db {
 enum Role {
   ADMIN
   EDITOR
+  MEMBER
 }
 
 enum PostStatus {
@@ -20,10 +21,17 @@ enum PostStatus {
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
+  username      String?   @unique
   name          String?
   passwordHash  String
   avatar        String?
+  bio           String?
+  website       String?
+  github        String?
   role          Role      @default(ADMIN)
+  points        Int       @default(0)
+  level         Int       @default(1)
+  emailVerified Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   posts         Post[]
