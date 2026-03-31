@@ -16,6 +16,11 @@ import {
   Sun,
   Moon,
   Rss,
+  LogIn,
+  UserPlus,
+  LogOut,
+  Settings,
+  User as UserIcon,
 } from "lucide-react";
 import { Dialog, DialogPanel, Transition, TransitionChild } from "@headlessui/react";
 import { useSiteConfig, updateSiteConfigCache } from "@/lib/useSiteConfig";
@@ -45,6 +50,9 @@ export default function Navbar() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [mounted, setMounted] = useState(false);
   const [searchResults, setSearchResults] = useState<{ title: string; slug: string; category?: { name: string } }[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ name?: string; username?: string; avatar?: string; role?: string } | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   // Derive theme from config (single source of truth); fallback to DOM class before config loads
   const theme = config.theme_name
     || (typeof document !== "undefined"
@@ -56,6 +64,43 @@ export default function Navbar() {
   useEffect(() => { setMounted(true); }, []);
   const dropdownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch current user session for auth UI
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data?.user) {
+          setCurrentUser({
+            name: data.user.name,
+            username: data.user.username,
+            avatar: data.user.avatar,
+            role: data.user.role,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [pathname]);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
+    setCurrentUser(null);
+    setUserMenuOpen(false);
+    window.location.href = "/";
+  };
 
   // Scroll & reading progress
   useEffect(() => {
@@ -325,6 +370,80 @@ export default function Navbar() {
                   <Command className="w-2.5 h-2.5" />K
                 </kbd>
               </button>
+              {/* Auth: Login/Register or User Avatar */}
+              {mounted && (
+                currentUser ? (
+                  <div ref={userMenuRef} className="relative">
+                    <button
+                      onClick={() => setUserMenuOpen(!userMenuOpen)}
+                      className="flex items-center gap-1 p-1 rounded-full hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary-light font-bold overflow-hidden">
+                        {currentUser.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={currentUser.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          (currentUser.username || currentUser.name || "U")[0]?.toUpperCase()
+                        )}
+                      </div>
+                    </button>
+                    {userMenuOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-48 glass rounded-xl border border-border shadow-2xl overflow-hidden z-50">
+                        <div className="px-4 py-3 border-b border-border">
+                          <p className="text-sm font-medium text-foreground truncate">{currentUser.name || currentUser.username}</p>
+                          <p className="text-xs text-muted truncate">@{currentUser.username}</p>
+                        </div>
+                        {currentUser.username && (
+                          <Link
+                            href={`/profile/${currentUser.username}`}
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground/80 hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <UserIcon className="w-4 h-4" /> 我的主页
+                          </Link>
+                        )}
+                        <Link
+                          href="/profile/settings"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground/80 hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                          <Settings className="w-4 h-4" /> 编辑资料
+                        </Link>
+                        {(currentUser.role === "ADMIN" || currentUser.role === "EDITOR") && (
+                          <Link
+                            href="/dashboard"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground/80 hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <Settings className="w-4 h-4" /> 管理后台
+                          </Link>
+                        )}
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/5 transition-colors cursor-pointer border-t border-border"
+                        >
+                          <LogOut className="w-4 h-4" /> 退出登录
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="hidden sm:flex items-center gap-1.5">
+                    <Link
+                      href="/auth/login"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-foreground/70 hover:text-foreground hover:bg-white/5 rounded-lg transition-all cursor-pointer"
+                    >
+                      <LogIn className="w-3.5 h-3.5" /> 登录
+                    </Link>
+                    <Link
+                      href="/auth/register"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-white bg-primary hover:bg-primary-light rounded-lg transition-all cursor-pointer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" /> 注册
+                    </Link>
+                  </div>
+                )
+              )}
               <button
                 className="lg:hidden p-2 text-foreground/60 hover:text-foreground cursor-pointer"
                 onClick={() => setDrawerOpen(true)}
@@ -588,6 +707,36 @@ export default function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+
+                {/* Mobile auth buttons */}
+                <div className="h-px bg-border/30 my-2" />
+                {currentUser ? (
+                  <>
+                    <div className="px-3 py-2 text-sm text-muted">
+                      已登录: <span className="text-foreground">{currentUser.name || currentUser.username}</span>
+                    </div>
+                    {currentUser.username && (
+                      <Link href={`/profile/${currentUser.username}`} onClick={() => setDrawerOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground/80 hover:bg-white/5 rounded-lg cursor-pointer">
+                        <UserIcon className="w-4 h-4" /> 我的主页
+                      </Link>
+                    )}
+                    <Link href="/profile/settings" onClick={() => setDrawerOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground/80 hover:bg-white/5 rounded-lg cursor-pointer">
+                      <Settings className="w-4 h-4" /> 编辑资料
+                    </Link>
+                    <button onClick={() => { setDrawerOpen(false); handleLogout(); }} className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/5 rounded-lg cursor-pointer">
+                      <LogOut className="w-4 h-4" /> 退出登录
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/auth/login" onClick={() => setDrawerOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground/80 hover:bg-white/5 rounded-lg cursor-pointer">
+                      <LogIn className="w-4 h-4" /> 登录
+                    </Link>
+                    <Link href="/auth/register" onClick={() => setDrawerOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-white bg-primary hover:bg-primary-light rounded-lg mx-3 justify-center cursor-pointer">
+                      <UserPlus className="w-4 h-4" /> 注册
+                    </Link>
+                  </>
+                )}
               </nav>
             </DialogPanel>
           </TransitionChild>
