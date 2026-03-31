@@ -143,6 +143,7 @@ export default function Navbar() {
 
   const staticLinks = [
     { href: "/blog", label: "博客", icon: FileText },
+    { href: "/forum", label: "论坛", icon: null },
     { href: "/tags", label: "标签", icon: null },
     { href: "/archive", label: "归档", icon: null },
     { href: "/album", label: "相册", icon: Sparkles },
