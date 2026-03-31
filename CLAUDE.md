@@ -7,7 +7,7 @@
 **核心能力要求：**
 - Next.js 16 App Router 架构设计与性能优化
 - TypeScript 类型安全与 Prisma 7 数据建模
-- Tailwind CSS 4 深色主题与视觉特效实现（Three.js / CSS 动画）
+- Tailwind CSS 4 深色主题与视觉特效实现（Three.js / CSS 动画 / Rive 动画）
 - Docker 容器化部署与 Nginx 反向代理配置
 
 **工作原则：**
@@ -16,11 +16,13 @@
 - 薄控制器：API 路由只做参数解析和错误映射，业务逻辑在 service 层
 - 视觉一致：遵循深色科技主题，使用项目已定义的 CSS 变量和 glass/glow 效果
 - 中文优先：代码注释和 commit message 可用中文，变量名和函数名用英文
+- **开源优先**：每个新模块实现前，先搜索 GitHub 上的成熟开源方案，优先集成/适配而非从零实现
 
 ## 项目概述
 
 面向 DBA、SRE/DevOps/K8s、AI、大数据、Python、Golang、前端等技术领域的个人博客网站。
 深色科技风格，包含炫酷视觉特效（粒子背景、3D 相册、鼠标特效、加载动画）和完整的后台管理系统。
+包含**社区论坛模块**（技术讨论、Q&A）和**用户注册系统**（卡通角色动画登录页）。
 
 ## 技术栈
 
@@ -28,9 +30,9 @@
 - **数据库**: PostgreSQL (Prisma 7 ORM + @prisma/adapter-pg)
 - **缓存**: Redis (ioredis)
 - **UI**: Tailwind CSS 4 + Lucide React 图标
-- **特效**: Three.js (@react-three/fiber) + CSS 动画
-- **编辑器**: Tiptap
-- **认证**: NextAuth.js v5 (beta)
+- **特效**: Three.js (@react-three/fiber) + CSS 动画 + Rive (@rive-app/react-canvas)
+- **编辑器**: Novel (基于 Tiptap，Notion 风格 slash commands + AI 补全)
+- **认证**: NextAuth.js v5 (beta)，后续可迁移到 Better Auth
 - **运行时**: Bun (开发/测试) / Node.js (生产)
 - **部署**: Docker Compose + Nginx
 - **数据库服务器**: 187.77.168.226（PostgreSQL + Redis 独立部署，本地不运行数据库容器）
@@ -42,25 +44,39 @@
 ```
 src/
 ├── app/
-│   ├── (public)/     # 前台页面（路由组，不影响 URL）
-│   ├── (admin)/      # 后台管理页面
-│   └── api/          # API 路由
+│   ├── (public)/           # 前台页面（路由组，不影响 URL）
+│   │   ├── forum/          # 论坛前台（帖子列表、详情、发帖）
+│   │   ├── auth/           # 用户认证页面（登录、注册、忘记密码）
+│   │   └── profile/        # 用户个人主页（[username]）
+│   ├── (admin)/            # 后台管理页面
+│   └── api/                # API 路由
+│       ├── forum/          # 论坛 API（帖子、回复、投票）
+│       └── auth/           # 认证 API
 ├── components/
-│   ├── effects/      # 视觉特效组件（LoadingScreen, MouseTrail, ParticleBackground 等）
-│   ├── layout/       # 布局组件（Navbar, Footer, MusicPlayer）
-│   ├── blog/         # 博客组件（PostCard, HeroCarousel, TableOfContents 等）
-│   └── admin/        # 后台管理组件（Toast, ConfirmModal）
+│   ├── effects/            # 视觉特效组件（LoadingScreen, MouseTrail, ParticleBackground 等）
+│   ├── layout/             # 布局组件（Navbar, Footer, MusicPlayer）
+│   ├── blog/               # 博客组件（PostCard, HeroCarousel, TableOfContents 等）
+│   ├── admin/              # 后台管理组件（Toast, ConfirmModal）
+│   ├── forum/              # 论坛组件（ThreadCard, ReplyEditor, VoteButton, ForumSidebar）
+│   ├── auth/               # 认证组件（LoginCharacter, RegisterForm, SocialLoginButtons）
+│   └── editor/             # 编辑器组件（Novel 编辑器封装、工具栏扩展）
 ├── lib/
-│   ├── services/     # Service 层（postService, commentService, statsService, settingsService）
-│   ├── prisma.ts     # Prisma Client
-│   ├── redis.ts      # Redis 连接
-│   ├── auth.ts       # NextAuth 配置
-│   ├── categoryUtils.ts  # 分类图标/颜色/描述工具（数据驱动，非硬编码）
-│   ├── useSiteConfig.ts  # 站点配置 hook（SSR/Client 分离）
-│   ├── useScrollReveal.ts # 滚动揭示动画 hook
-│   └── importDocument.ts  # Markdown/HTML 导入
-├── types/            # TypeScript 类型声明
-└── styles/           # 全局样式
+│   ├── services/           # Service 层
+│   │   ├── postService.ts
+│   │   ├── commentService.ts
+│   │   ├── statsService.ts
+│   │   ├── settingsService.ts
+│   │   ├── forumService.ts      # 论坛帖子/回复/投票 CRUD
+│   │   └── memberService.ts     # 用户注册/资料/积分
+│   ├── prisma.ts
+│   ├── redis.ts
+│   ├── auth.ts
+│   ├── categoryUtils.ts
+│   ├── useSiteConfig.ts
+│   ├── useScrollReveal.ts
+│   └── importDocument.ts
+├── types/                  # TypeScript 类型声明
+└── styles/                 # 全局样式
 ```
 
 ### Service 层
@@ -71,6 +87,8 @@ API 路由采用"薄控制器"模式：路由文件只做参数解析 + 认证 +
 - `commentService.ts` -- 评论 CRUD、审核
 - `statsService.ts` -- 仪表盘统计
 - `settingsService.ts` -- 站点配置管理
+- `forumService.ts` -- 论坛帖子/回复 CRUD、投票、置顶/精华、标签过滤
+- `memberService.ts` -- 用户注册/登录、个人资料、头像上传、积分/等级
 
 ### 分类配置（数据驱动）
 
@@ -82,6 +100,288 @@ API 路由采用"薄控制器"模式：路由文件只做参数解析 + 认证 +
 ### HTML 内容增强策略
 
 代码块工具栏（语言标签+复制按钮）和 heading ID（TOC 锚点）均在 **HTML 字符串层面** 通过 `useMemo` regex 注入，而非 DOM effect 追加。原因：React re-render 时 innerHTML 会重置，DOM 追加的元素会丢失。
+
+---
+
+## 升级路线图（按优先级排序）
+
+以下模块按依赖关系和优先级排序，每个模块独立可交付。
+
+### Phase 1: 编辑器升级 — Novel 替换 Tiptap 裸配置
+
+**目标**：将后台文章编辑器从 Tiptap 裸配置升级为 Novel（Notion 风格 WYSIWYG 编辑器）
+
+**参考项目**：
+- [steven-tey/novel](https://github.com/steven-tey/novel)（15.8k stars）— 基于 Tiptap 的 Notion 风格编辑器
+- 安装：`bun add novel`
+
+**约束规则**：
+- Novel 底层是 Tiptap，与现有 HTML 内容存储格式兼容，**不需要数据迁移**
+- 编辑器封装为独立组件 `src/components/editor/NovelEditor.tsx`
+- 保留现有功能：图片上传（MinIO）、代码高亮、表格、自动保存草稿
+- 新增功能：`/` 斜杠命令菜单、气泡工具栏、拖拽排序块
+- AI 补全功能可选（需配置 OpenAI API key，通过 SiteConfig 管理）
+- 前台文章渲染（PostDetail.tsx）不需要改动，仍然渲染 HTML
+- 后台新建/编辑文章页（`posts/new`、`posts/[id]/edit`）替换编辑器组件
+
+**验收标准**：
+- [ ] 斜杠命令可插入标题/列表/代码块/图片/表格/分割线
+- [ ] 气泡菜单支持加粗/斜体/链接/高亮
+- [ ] 图片上传走 MinIO，与现有 Media 管理打通
+- [ ] 已有文章内容可正常加载和编辑（HTML 兼容）
+- [ ] 自动保存草稿到 localStorage（保持现有逻辑）
+- [ ] 代码块支持语言选择和语法高亮
+
+### Phase 2: 用户注册系统 + 卡通角色登录页
+
+**目标**：扩展认证系统，支持公开用户注册，登录页使用 Rive 卡通角色动画（眼睛跟随输入）
+
+**参考项目**：
+- [Rive 社区 — eyes-following-cursor](https://rive.app/community)（搜索 "login bear" / "eyes follow"）
+- [@rive-app/react-canvas](https://github.com/rive-app/rive-react) — Rive React 集成
+- 安装：`bun add @rive-app/react-canvas`
+- `.riv` 动画文件放 `public/animations/login-character.riv`
+
+**数据模型扩展**（Prisma schema）：
+```prisma
+enum Role {
+  ADMIN
+  EDITOR
+  MEMBER    // 新增：注册用户
+}
+
+model User {
+  // 现有字段保持不变...
+  username    String?   @unique   // 新增：用户名（用于论坛显示）
+  bio         String?             // 新增：个人简介
+  website     String?             // 新增：个人网站
+  github      String?             // 新增：GitHub 用户名
+  points      Int       @default(0)  // 新增：积分
+  level       Int       @default(1)  // 新增：等级
+  emailVerified Boolean @default(false)  // 新增：邮箱验证状态
+  forumPosts  ForumPost[]         // 论坛帖子
+  forumReplies ForumReply[]       // 论坛回复
+  forumVotes  ForumVote[]         // 论坛投票
+}
+```
+
+**登录页约束（Rive 卡通角色）**：
+- 页面路径：`src/app/(public)/auth/login/page.tsx`
+- 卡通角色组件：`src/components/auth/LoginCharacter.tsx`
+- **角色行为**：
+  - 默认状态：角色正面看向用户
+  - 输入邮箱/用户名时：眼睛跟随输入光标位置左右移动
+  - 聚焦密码框时：角色用手捂住眼睛（害羞/遮挡动画）
+  - 登录失败：角色摇头 / 难过表情
+  - 登录成功：角色开心 / 挥手
+- Rive State Machine 输入映射：`isHandsUp`（密码遮挡）、`lookX`/`lookY`（眼球方向）、`trigSuccess`/`trigFail`（结果动画）
+- 动画文件大小限制 < 100KB（Rive 二进制格式非常紧凑）
+- 备用方案：如果 Rive 集成有问题，降级为 CSS/Lottie 动画实现类似效果
+
+**注册页约束**：
+- 页面路径：`src/app/(public)/auth/register/page.tsx`
+- 复用同一卡通角色（角色在注册页也活跃）
+- 必填字段：邮箱、用户名、密码（确认密码）
+- 用户名规则：3-20 字符，字母数字下划线，全局唯一
+- 密码规则：最少 8 字符，必须包含字母和数字
+- 邮箱验证：注册后发送验证邮件（可选，初期可跳过）
+- 注册后默认角色：`MEMBER`
+- 注册后自动登录并跳转首页
+
+**权限体系**：
+- `ADMIN`：全部后台权限 + 论坛管理
+- `EDITOR`：文章编辑权限
+- `MEMBER`：论坛发帖/回复/投票 + 个人资料编辑 + 评论（自动通过审核）
+- 未登录游客：只能浏览，评论需填写名称/邮箱（现有逻辑不变）
+
+### Phase 3: 论坛/社区模块
+
+**目标**：新增技术讨论论坛，支持发帖、回复、投票、标签、排序
+
+**参考项目**：
+- [apache/answer](https://github.com/apache/answer)（10k+ stars）— Q&A 平台的交互模式参考
+- [Discourse](https://github.com/discourse/discourse)（43k stars）— 信任等级和版块管理参考
+- 不直接集成外部项目，而是参考其 UI/UX 模式在 Next.js 中原生实现
+
+**数据模型**（Prisma schema 新增）：
+```prisma
+model ForumCategory {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  slug        String      @unique
+  description String?
+  icon        String?
+  color       String?
+  sortOrder   Int         @default(0)
+  posts       ForumPost[]
+  createdAt   DateTime    @default(now())
+}
+
+model ForumPost {
+  id          String        @id @default(cuid())
+  title       String
+  slug        String        @unique
+  content     String        // HTML（通过编辑器输出）
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id])
+  categoryId  String
+  category    ForumCategory @relation(fields: [categoryId], references: [id])
+  tags        ForumPostTag[]
+  replies     ForumReply[]
+  votes       ForumVote[]
+  viewCount   Int           @default(0)
+  replyCount  Int           @default(0)
+  voteScore   Int           @default(0)
+  isPinned    Boolean       @default(false)
+  isFeatured  Boolean       @default(false)
+  isLocked    Boolean       @default(false)
+  isSolved    Boolean       @default(false)  // Q&A 模式：已解决
+  solvedReplyId String?                       // 被采纳的回复 ID
+  lastReplyAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([categoryId, createdAt])
+  @@index([authorId])
+  @@index([voteScore])
+}
+
+model ForumTag {
+  id    String         @id @default(cuid())
+  name  String         @unique
+  slug  String         @unique
+  posts ForumPostTag[]
+}
+
+model ForumPostTag {
+  postId String
+  tagId  String
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    ForumTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+}
+
+model ForumReply {
+  id        String      @id @default(cuid())
+  content   String
+  authorId  String
+  author    User        @relation(fields: [authorId], references: [id])
+  postId    String
+  post      ForumPost   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId  String?     // 支持楼中楼回复
+  parent    ForumReply? @relation("ReplyReplies", fields: [parentId], references: [id])
+  replies   ForumReply[] @relation("ReplyReplies")
+  votes     ForumVote[]
+  voteScore Int         @default(0)
+  isAccepted Boolean    @default(false)  // 被采纳为最佳回复
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([postId, createdAt])
+}
+
+model ForumVote {
+  id        String      @id @default(cuid())
+  value     Int         // +1 或 -1
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  postId    String?
+  post      ForumPost?  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  replyId   String?
+  reply     ForumReply? @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([userId, postId])
+  @@unique([userId, replyId])
+}
+```
+
+**前台页面结构**：
+- `/forum` — 论坛首页（版块列表 + 热门帖子 + 最新帖子）
+- `/forum/[category-slug]` — 版块帖子列表（支持排序：最新/热门/未回复）
+- `/forum/post/[slug]` — 帖子详情 + 回复列表
+- `/forum/new` — 发帖页（需要 MEMBER 以上角色登录）
+- `/forum/tags` — 标签云页面
+
+**论坛 UI 约束**：
+- 与博客共享深色科技主题（glass/glow 效果）
+- 帖子列表采用紧凑卡片布局，显示：标题、作者头像/名称、版块标签、回复数、投票数、最后回复时间
+- 投票按钮：上/下箭头，类似 Stack Overflow / Reddit 风格
+- 回复编辑器：使用精简版 Novel 编辑器（支持 Markdown、代码块、图片）
+- 发帖编辑器：完整版 Novel 编辑器
+- 帖子状态标签：置顶🔝、精华⭐、已解决✅、已锁定🔒
+- 移动端响应式：帖子列表变为单列，投票按钮改为水平排列
+
+**论坛 API 接口**：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/forum/categories | 论坛版块列表 |
+| GET | /api/forum/posts | 帖子列表（分页/筛选/排序） |
+| GET | /api/forum/posts/[slug] | 帖子详情（含回复） |
+| POST | /api/forum/posts | 发帖（需 MEMBER+登录） |
+| PUT | /api/forum/posts/[id] | 编辑帖子（作者或 ADMIN） |
+| DELETE | /api/forum/posts/[id] | 删除帖子（作者或 ADMIN） |
+| POST | /api/forum/replies | 回复帖子（需 MEMBER+登录） |
+| POST | /api/forum/votes | 投票（需 MEMBER+登录，每人每帖/回复仅一票） |
+| PUT | /api/forum/posts/[id]/solve | 标记已解决（帖子作者或 ADMIN） |
+
+**论坛积分规则**（写入 memberService）：
+- 发帖 +5 分
+- 回复 +2 分
+- 收到赞同 +1 分
+- 回复被采纳 +10 分
+- 等级计算：`level = Math.floor(Math.sqrt(points / 10)) + 1`
+
+### Phase 4: 后台管理升级
+
+**目标**：提升后台 UI 质量和功能完整度
+
+**参考项目**：
+- [Kiranism/next-shadcn-dashboard-starter](https://github.com/Kiranism/next-shadcn-dashboard-starter)（5.8k stars）— UI 组件和布局参考
+- 不要全盘引入 shadcn/ui，按需引入需要的组件模式
+
+**升级项**：
+- **仪表盘增强**：增加论坛统计（帖子数、活跃用户、热门话题趋势图）
+- **用户管理页**：`/admin/users` — 查看/搜索用户列表、修改角色、禁用账号
+- **论坛管理页**：`/admin/forum` — 版块 CRUD、帖子审核/置顶/精华/锁定
+- **Markdown 渲染优化**：
+  - 代码块：行号显示、语言标签、一键复制、代码折叠（长代码块）
+  - 表格：响应式滚动、斑马纹、排序（可选）
+  - 图片：点击放大（lightbox）、懒加载
+  - 数学公式：KaTeX 支持（可选）
+  - Mermaid 图表：已有基础，确保渲染正确
+- **批量操作**：帖子/评论批量删除/审核
+
+### Phase 5: 用户个人主页
+
+**目标**：每个注册用户拥有公开个人主页
+
+**页面路径**：`/profile/[username]`
+
+**页面内容**：
+- 用户头像（支持上传到 MinIO）、用户名、简介、社交链接
+- 活动统计：发帖数、回复数、获赞数、积分、等级
+- 帖子/回复 Tab 切换列表
+- 个人资料编辑页（仅本人可见）：`/profile/settings`
+
+---
+
+## 开源集成规则
+
+实现新功能前，**必须**遵循以下流程：
+
+1. **搜索 GitHub**：`gh search repos <关键词>` 或 `gh search code <关键词>` 找到 star 数 > 500 的成熟方案
+2. **评估适配性**：检查技术栈兼容性（Next.js / React / TypeScript / Tailwind）、包大小、维护活跃度
+3. **优先集成**：如果有现成 npm 包（如 novel、@rive-app/react-canvas），直接安装使用
+4. **参考实现**：如果是架构模式（如论坛），参考开源项目的数据模型和 UI 交互，在项目中原生实现
+5. **记录来源**：在相关组件文件顶部注释标明参考来源 URL
+
+**禁止**：
+- 不要在已有成熟开源方案时从零手写（如编辑器、动画引擎、认证库）
+- 不要引入整个 UI 库替换 Tailwind（如 Ant Design、MUI），只借鉴组件模式
+- 不要引入 bundle size > 500KB 的包（检查 bundlephobia.com）
 
 ## 开发规范
 
@@ -157,6 +457,8 @@ docker compose up -d --build                       # 生产部署
 
 ## API 接口规范
 
+### 博客 API（现有）
+
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | /api/posts | 文章列表（支持分页/分类/搜索） |
@@ -169,20 +471,60 @@ docker compose up -d --build                       # 生产部署
 | POST | /api/subscribe | 邮箱订阅 |
 | GET | /api/site-config | 公开站点配置 |
 | GET | /api/site-stats | 公开站点统计 |
-| GET | /api/admin/stats | 仪表盘统计数据（需认证） |
-| GET | /api/admin/posts | 管理后台文章列表（需认证） |
-| PUT | /api/admin/posts | 更新文章（需认证） |
-| DELETE | /api/admin/posts?id=xxx | 删除文章（需认证） |
-| PUT | /api/admin/password | 修改管理员密码（需认证） |
-| GET | /api/admin/categories | 分类管理（需认证） |
-| POST/PUT/DELETE | /api/admin/categories | 分类 CRUD（需认证） |
-| GET | /api/admin/settings | 获取站点配置（需认证） |
-| PUT | /api/admin/settings | 更新站点配置（需认证） |
+
+### 认证 API（扩展）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/auth/register | 用户注册（邮箱+用户名+密码） |
+| GET/POST | /api/auth/[...nextauth] | NextAuth 认证路由 |
+| GET | /api/auth/check-username | 检查用户名是否可用 |
+
+### 论坛 API（新增）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/forum/categories | 论坛版块列表 |
+| GET | /api/forum/posts | 帖子列表（分页/筛选/排序） |
+| GET | /api/forum/posts/[slug] | 帖子详情 + 回复 |
+| POST | /api/forum/posts | 发帖（需 MEMBER+） |
+| PUT | /api/forum/posts/[id] | 编辑帖子 |
+| DELETE | /api/forum/posts/[id] | 删除帖子 |
+| POST | /api/forum/replies | 回复帖子 |
+| POST | /api/forum/votes | 投票（+1 / -1） |
+| PUT | /api/forum/posts/[id]/solve | 标记已解决 |
+
+### 用户 API（新增）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/users/[username] | 用户公开资料 |
+| PUT | /api/users/profile | 更新个人资料（需登录） |
+| POST | /api/users/avatar | 上传头像到 MinIO |
+
+### 管理 API（现有 + 扩展）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/admin/stats | 仪表盘统计数据（需 ADMIN） |
+| GET | /api/admin/posts | 管理后台文章列表（需 ADMIN） |
+| PUT | /api/admin/posts | 更新文章（需 ADMIN） |
+| DELETE | /api/admin/posts?id=xxx | 删除文章（需 ADMIN） |
+| PUT | /api/admin/password | 修改管理员密码（需 ADMIN） |
+| GET | /api/admin/categories | 分类管理（需 ADMIN） |
+| POST/PUT/DELETE | /api/admin/categories | 分类 CRUD（需 ADMIN） |
+| GET | /api/admin/settings | 获取站点配置（需 ADMIN） |
+| PUT | /api/admin/settings | 更新站点配置（需 ADMIN） |
+| GET | /api/admin/users | 用户列表（需 ADMIN） |
+| PUT | /api/admin/users/[id]/role | 修改用户角色（需 ADMIN） |
+| GET | /api/admin/forum | 论坛帖子管理（需 ADMIN） |
+| PUT | /api/admin/forum/[id] | 帖子置顶/精华/锁定（需 ADMIN） |
 
 ## 测试账号
 
-- 邮箱: `admin@techblog.com`
-- 密码: `admin123`
+- 管理员邮箱: `admin@techblog.com`
+- 管理员密码: `admin123`
+- 测试用户: 通过注册页创建
 
 ## 自治开发流程
 
@@ -207,13 +549,95 @@ docker compose up -d --build                       # 生产部署
 5. **标记**：TaskUpdate 标记任务完成
 6. **继续**：自动进入下一个子任务，不要停下来等用户说"继续"
 
-### 阶段 3：收尾
-1. 运行完整的 `bun run build` 确认无回归
-2. 输出变更摘要（修改了哪些文件、新增了什么功能）
-3. 等待用户决定是否 commit
+### 阶段 3：质量验证（每个 Phase 完成后必须执行）
+
+**3a. 构建 & Lint 验证**
+```bash
+bun run lint          # 0 error 0 warning 才算通过
+bun run build         # 编译成功，无类型错误
+```
+
+**3b. 浏览器 QA 自测**
+用 browse/playwright 打开 `http://localhost:3000`，逐页验证：
+- 新增页面能正常加载，无白屏、无 JS 报错（检查 console）
+- 所有交互功能可用（按钮点击、表单提交、路由跳转）
+- 已有页面无回归（首页、文章详情、后台仪表盘至少各检查一次）
+
+**3c. 手机端适配验证**
+用 playwright 模拟移动设备（viewport 375×812，iPhone 14）逐页检查：
+- 布局无溢出、横向滚动条
+- 导航栏可正常展开/收起
+- 表单输入框宽度适配
+- 卡片/列表单列排列
+- 按钮/链接点击区域 ≥ 44px
+- 论坛帖子列表、投票按钮在移动端可用
+- 登录/注册页角色动画在移动端正常显示且不遮挡表单
+
+**3d. 功能验证清单（按模块）**
+
+Phase 1 — 编辑器：
+- [ ] 后台新建文章：斜杠命令菜单可用
+- [ ] 后台编辑文章：已有 HTML 内容正确加载
+- [ ] 插入图片 → MinIO 上传成功
+- [ ] 自动保存草稿正常
+- [ ] 前台文章详情渲染无变化
+
+Phase 2 — 用户注册 + 登录：
+- [ ] 注册页：填写表单 → 创建用户 → 自动登录 → 跳转首页
+- [ ] 登录页：卡通角色眼睛跟随输入、密码框遮眼、成功/失败反馈
+- [ ] 用户名重复检测实时生效
+- [ ] MEMBER 用户不能访问 /admin/* 后台页面
+- [ ] 管理员登录流程不受影响（/admin/login 保持原样或统一跳转）
+
+Phase 3 — 论坛：
+- [ ] 论坛首页加载版块列表 + 帖子列表
+- [ ] MEMBER 登录后可发帖、回复、投票
+- [ ] 未登录用户只能浏览，点击发帖/回复/投票弹出登录提示
+- [ ] 帖子详情页：回复列表、楼中楼、投票计数
+- [ ] ADMIN 可置顶/精华/锁定/删除帖子
+- [ ] 标记已解决功能可用
+- [ ] 积分变动正确（发帖+5、回复+2、被赞+1、被采纳+10）
+
+Phase 4 — 后台升级：
+- [ ] 仪表盘显示论坛统计
+- [ ] 用户管理页：列表、搜索、修改角色
+- [ ] 论坛管理页：帖子审核、批量操作
+- [ ] 代码块渲染：行号、语言标签、复制、折叠
+
+Phase 5 — 用户主页：
+- [ ] /profile/[username] 显示用户信息和活动
+- [ ] 头像上传到 MinIO
+- [ ] 个人资料编辑保存成功
+
+**3e. 安全检查**
+- [ ] 注册/登录 API 有 rate limit（防暴力破解）
+- [ ] 论坛发帖/回复内容经 DOMPurify 净化（防 XSS）
+- [ ] 用户输入的 username/bio 不包含 HTML 标签
+- [ ] 非 ADMIN 用户无法调用 /api/admin/* 接口
+- [ ] 投票接口防重复（同一用户同一帖子只能投一次）
+- [ ] 密码以 bcryptjs hash 存储，cost ≥ 12
+
+### 阶段 4：Git 提交 & 推送
+
+每个 Phase 完成且验证通过后：
+1. `git add` 仅暂存本 Phase 相关文件（不要 `git add .`）
+2. commit message 格式：`feat: Phase N — <简要描述>`
+3. `git push origin main`
+4. 输出本 Phase 变更摘要（新增文件、修改文件、新增功能列表）
+5. 自动进入下一个 Phase，不要停下等用户确认
+
+### 阶段 5：跨 Phase 回归检查
+
+每进入新 Phase 前：
+1. 确认 dev server 运行正常（`curl -s http://localhost:3000 | head -1`）
+2. 快速检查上一个 Phase 的核心功能未回归
+3. 如果 build 失败或页面白屏，优先修复再继续
 
 ### 关键规则
 - **不要在子任务之间停下来问"是否继续"** — 按计划持续执行
 - **遇到阻塞性错误时才停下** — 比如类型错误无法自动修复、需要用户提供业务决策
-- **每完成 3-5 个子任务输出一次进度摘要** — 让用户知道进展
+- **每完成一个 Phase 输出一次完整进度摘要** — 包含已完成项、验证结果、下一步
 - **利用并行 Agent** — 独立的子任务用 Agent 工具并行执行
+- **手机端不是可选项** — 每个页面必须在 375px 宽度下可用，这是验收标准的一部分
+- **不要跳过 QA** — 写完代码不验证等于没做完，必须用浏览器跑一遍
+- **推送前确认 build 通过** — `bun run build` 失败不允许 push
