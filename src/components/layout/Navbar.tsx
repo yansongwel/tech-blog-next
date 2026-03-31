@@ -96,10 +96,11 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = async () => {
-    await fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
     setCurrentUser(null);
     setUserMenuOpen(false);
-    window.location.href = "/";
+    // NextAuth v5: signOut via next-auth/react (handles CSRF token automatically)
+    const { signOut } = await import("next-auth/react");
+    await signOut({ redirect: true, redirectTo: "/" });
   };
 
   // Scroll & reading progress
