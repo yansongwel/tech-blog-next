@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, Trash2, Loader2, MessageSquare, Reply, Send, X, ChevronLeft, ChevronRight, Search, CheckSquare, Square } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/admin/Toast";
@@ -32,7 +32,7 @@ export default function CommentsManagePage() {
   const toast = useToast();
   const [confirmModal, setConfirmModal] = useState<{open: boolean, title: string, message: string, onConfirm: () => void}>({open: false, title: "", message: "", onConfirm: () => {}});
 
-  const fetchComments = (p?: number, f?: string, search?: string) => {
+  const fetchComments = useCallback((p?: number, f?: string, search?: string) => {
     setLoading(true);
     setError("");
     const currentFilter = f ?? filter;
@@ -53,15 +53,15 @@ export default function CommentsManagePage() {
         setTotalPages(data.pagination?.pages || 1);
         setTotal(data.pagination?.total || 0);
       })
-      .catch((err) => setError(err.message))
+      .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  };
+  }, [filter, page, searchQuery]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchComments(1);
     setPage(1);
-  }, [filter]);
+  }, [filter, fetchComments]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Debounced server-side search
@@ -71,7 +71,7 @@ export default function CommentsManagePage() {
       fetchComments(1, undefined, searchQuery);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, fetchComments]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {

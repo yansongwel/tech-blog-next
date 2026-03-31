@@ -5,12 +5,17 @@ export const dynamic = "force-dynamic";
 
 // GET /api/site-config - Public site config (no auth needed)
 export async function GET() {
-  const configs = await prisma.siteConfig.findMany();
-  const settings: Record<string, string> = {};
-  for (const c of configs) {
-    settings[c.key] = c.value;
+  try {
+    const configs = await prisma.siteConfig.findMany();
+    const settings: Record<string, string> = {};
+    for (const c of configs) {
+      settings[c.key] = c.value;
+    }
+    return NextResponse.json(settings, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+    });
+  } catch (err) {
+    console.error("GET /api/site-config error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  return NextResponse.json(settings, {
-    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
-  });
 }

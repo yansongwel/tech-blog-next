@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { hash } from "bcryptjs";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -205,8 +206,14 @@ export async function getPostBySlug(slug: string) {
   ]);
 
   // Strip lockPassword from response (never expose to frontend)
-  const { lockPassword: _, ...safePost } = post;
-  return { ...safePost, viewCount: post.viewCount + 1, relatedPosts, comments, prevPost, nextPost };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { lockPassword: _lockPassword, ...safePost } = post;
+
+  // If post is locked with password or wechat, hide content from API response
+  const isEffectivelyLocked = post.isLocked && (post.lockType === "password" || post.lockType === "wechat");
+  const content = isEffectivelyLocked ? "" : safePost.content;
+
+  return { ...safePost, content, viewCount: post.viewCount + 1, relatedPosts, comments, prevPost, nextPost };
 }
 
 export async function createPost(input: CreatePostInput) {
@@ -228,7 +235,7 @@ export async function createPost(input: CreatePostInput) {
       status: data.status ?? "DRAFT",
       isLocked: data.isLocked || false,
       lockType: data.lockType || "none",
-      lockPassword: data.lockPassword || null,
+      lockPassword: data.lockPassword ? await hash(data.lockPassword, 12) : null,
       authorId: data.authorId,
       categoryId: data.categoryId,
       publishedAt: data.status === "PUBLISHED" ? new Date() : null,
@@ -289,7 +296,9 @@ export async function updatePost(input: UpdatePostInput) {
   if (fields.categoryId !== undefined) updateData.categoryId = fields.categoryId;
   if (fields.isLocked !== undefined) updateData.isLocked = fields.isLocked;
   if (fields.lockType !== undefined) updateData.lockType = fields.lockType;
-  if (fields.lockPassword !== undefined) updateData.lockPassword = fields.lockPassword;
+  if (fields.lockPassword !== undefined) {
+    updateData.lockPassword = fields.lockPassword ? await hash(fields.lockPassword, 12) : null;
+  }
   if (fields.status !== undefined) {
     updateData.status = fields.status;
     if (fields.status === "PUBLISHED" && existing.status !== "PUBLISHED") {

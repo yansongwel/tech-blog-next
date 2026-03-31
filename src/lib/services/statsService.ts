@@ -38,11 +38,9 @@ export async function getDashboardStats() {
     visits: parseInt(redisValues[i * 2 + 1] || "0"),
   }));
 
-  // Record today's stats
+  // Record today's view snapshot (read-only, no visit increment)
   const today = new Date().toISOString().slice(0, 10);
   await redis.set(`stats:views:${today}`, String(totalViews._sum.viewCount || 0), "EX", STATS_TTL);
-  await redis.incr(`stats:visits:${today}`);
-  await redis.expire(`stats:visits:${today}`, STATS_TTL);
 
   // Category distribution
   const categoryStats = await prisma.category.findMany({

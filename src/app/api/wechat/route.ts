@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
+import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
   const upperContent = content.toUpperCase();
 
   if (keywords.includes(upperContent)) {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = crypto.randomInt(100000, 1000000).toString();
     // Store code in Redis with 30 min expiry
     await redis.setex(`wechat:unlock:${code}`, 1800, fromUser);
 
@@ -79,5 +80,15 @@ export async function PUT(request: NextRequest) {
   // Store unlock record in Redis (24h)
   await redis.setex(`unlock:${visitorId}:${postId}`, 86400, "1");
 
-  return NextResponse.json({ unlocked: true });
+  // Return post content after successful unlock
+  let content = "";
+  if (postId) {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { content: true },
+    });
+    content = post?.content || "";
+  }
+
+  return NextResponse.json({ unlocked: true, content });
 }

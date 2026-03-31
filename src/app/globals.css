@@ -290,6 +290,35 @@ body:has(.mouse-trail-canvas) {
 .stagger-children > *:nth-child(7) { animation-delay: 0.36s; }
 .stagger-children > *:nth-child(8) { animation-delay: 0.42s; }
 
+/* ===== Table Styling (article content) ===== */
+article table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.875rem;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+article th,
+article td {
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+article th {
+  background: var(--surface);
+  font-weight: 600;
+  color: var(--foreground);
+}
+article td {
+  color: var(--foreground-secondary, var(--foreground));
+}
+article tr:hover td {
+  background: var(--surface);
+}
+
 /* ===== Code Block Styling ===== */
 pre {
   position: relative;

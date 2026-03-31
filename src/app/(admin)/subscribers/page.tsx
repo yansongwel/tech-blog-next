@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Mail, Loader2, Search, Trash2, Plus, Download, CheckSquare, Square,
   ChevronLeft, ChevronRight, UserCheck, UserX, Users, X,
@@ -40,7 +40,7 @@ export default function SubscribersPage() {
     open: false, title: "", message: "", onConfirm: () => {},
   });
 
-  const fetchSubscribers = (p?: number, status?: string, search?: string) => {
+  const fetchSubscribers = useCallback((p?: number, status?: string, search?: string) => {
     setLoading(true);
     const currentPage = p ?? page;
     const currentStatus = status ?? statusFilter;
@@ -59,10 +59,10 @@ export default function SubscribersPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  };
+  }, [page, statusFilter, searchQuery]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => { fetchSubscribers(); }, [page, statusFilter]);
+  useEffect(() => { fetchSubscribers(); }, [fetchSubscribers]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function SubscribersPage() {
       fetchSubscribers(1, undefined, searchQuery);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, fetchSubscribers]);
 
   const handleDelete = (id: string, email: string) => {
     setConfirmModal({

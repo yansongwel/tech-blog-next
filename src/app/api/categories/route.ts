@@ -5,21 +5,26 @@ export const dynamic = "force-dynamic";
 
 // GET /api/categories - List all categories with post counts
 export async function GET() {
-  const categories = await prisma.category.findMany({
-    include: {
-      children: {
-        include: {
-          _count: { select: { posts: true } },
+  try {
+    const categories = await prisma.category.findMany({
+      include: {
+        children: {
+          include: {
+            _count: { select: { posts: true } },
+          },
+          orderBy: { sortOrder: "asc" },
         },
-        orderBy: { sortOrder: "asc" },
+        _count: { select: { posts: true } },
       },
-      _count: { select: { posts: true } },
-    },
-    where: { parentId: null },
-    orderBy: { sortOrder: "asc" },
-  });
+      where: { parentId: null },
+      orderBy: { sortOrder: "asc" },
+    });
 
-  return NextResponse.json(categories, {
-    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
-  });
+    return NextResponse.json(categories, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+    });
+  } catch (err) {
+    console.error("GET /api/categories error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

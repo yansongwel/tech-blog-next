@@ -142,6 +142,8 @@ export default function HomePage() {
         totalPosts: statsData.totalPosts || 0,
         totalLikes: statsData.totalLikes || 0,
         siteVisits: statsData.siteVisits || 0,
+        hotPosts: statsData.hotPosts || [],
+        recentComments: statsData.recentComments || [],
       });
       setLoading(false);
     });
@@ -271,8 +273,9 @@ export default function HomePage() {
               <Link href={`/blog/${featuredPost.slug}`} className="block group cursor-pointer scroll-reveal">
                 <article className="glass rounded-2xl overflow-hidden card-hover card-glow">
                   <div className="grid md:grid-cols-2 gap-0">
-                    <div className="relative h-64 md:h-80 overflow-hidden">
+                    <div className="relative h-48 sm:h-64 md:h-80 overflow-hidden">
                       {featuredPost.coverImage ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={featuredPost.coverImage}
                           alt={featuredPost.title}

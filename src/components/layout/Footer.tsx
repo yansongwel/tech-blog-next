@@ -51,9 +51,9 @@ export default function Footer() {
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-6 md:gap-8">
           {/* Brand */}
-          <div className="md:col-span-4">
+          <div className="sm:col-span-2 md:col-span-4">
             <div className="flex items-center gap-2.5 mb-4">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm" suppressHydrationWarning>
                 {(config.site_logo || siteName)[0]}
@@ -131,7 +131,7 @@ export default function Footer() {
 
           {/* Site stats card */}
           {stats && (
-            <div className="md:col-span-3">
+            <div className="sm:col-span-2 md:col-span-3">
               <h4 className="font-semibold text-foreground mb-4 text-sm uppercase tracking-wider">站点数据</h4>
               <div className="glass rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2.5 text-sm">

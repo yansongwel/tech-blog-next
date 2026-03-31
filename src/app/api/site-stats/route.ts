@@ -7,11 +7,11 @@ export const dynamic = "force-dynamic";
 // GET /api/site-stats - Public site statistics
 export async function GET() {
   try {
-    const [viewsResult, totalPosts, totalLikes, siteVisits, startDateConfig, hotPosts, recentComments] = await Promise.all([
+    const [viewsResult, totalPosts, totalLikes, siteVisitsRaw, startDateConfig, hotPosts, recentComments] = await Promise.all([
       prisma.post.aggregate({ _sum: { viewCount: true } }),
       prisma.post.count({ where: { status: "PUBLISHED" } }),
       prisma.like.count(),
-      redis.incr("site:visits"),
+      redis.get("site:visits"),
       prisma.siteConfig.findUnique({ where: { key: "site_start_date" } }),
       prisma.post.findMany({
         where: { status: "PUBLISHED" },
@@ -31,10 +31,12 @@ export async function GET() {
       totalViews: viewsResult._sum.viewCount || 0,
       totalPosts,
       totalLikes,
-      siteVisits,
+      siteVisits: parseInt(siteVisitsRaw || "0"),
       startDate: startDateConfig?.value || new Date().toISOString().slice(0, 10),
       hotPosts,
       recentComments,
+    }, {
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=120" },
     });
   } catch (err) {
     console.error("GET /api/site-stats error:", err);

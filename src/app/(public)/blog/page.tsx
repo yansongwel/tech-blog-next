@@ -204,7 +204,7 @@ function BlogListContent() {
                     {post.coverImage && (
                       <div className="w-24 h-16 rounded-lg overflow-hidden shrink-0 hidden sm:block">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={post.coverImage} alt="" className="w-full h-full object-cover" />
+                        <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">

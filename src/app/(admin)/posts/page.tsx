@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Edit, Trash2, Eye, Loader2, ChevronLeft, ChevronRight, Search, CheckSquare, Square, Download, FileText } from "lucide-react";
 import { useToast } from "@/components/admin/Toast";
@@ -90,7 +90,7 @@ export default function PostsManagePage() {
     setExporting(false);
   };
 
-  const fetchPosts = (p?: number, status?: string, search?: string) => {
+  const fetchPosts = useCallback((p?: number, status?: string, search?: string) => {
     setLoading(true);
     const currentPage = p ?? page;
     const currentStatus = status ?? statusFilter;
@@ -108,11 +108,11 @@ export default function PostsManagePage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  };
+  }, [page, statusFilter, searchQuery]);
 
   useEffect(() => {
     fetchPosts();
-  }, [page, statusFilter]);
+  }, [fetchPosts]);
 
   // Debounced server-side search
   useEffect(() => {
@@ -121,7 +121,7 @@ export default function PostsManagePage() {
       fetchPosts(1, undefined, searchQuery);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, fetchPosts]);
 
   const handleDelete = (id: string, title: string) => {
     setConfirmModal({

@@ -15,7 +15,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  Lock,
+
   KeyRound,
   Send,
   Check,
@@ -191,7 +191,7 @@ export default function PostDetail({ slug }: { slug: string }) {
               wrapper.className = "mermaid-rendered";
               // Mermaid SVGs are generated locally by the library, safe to render
               const tmpl = document.createElement("template");
-              tmpl.innerHTML = svg; // eslint-disable-line -- mermaid-generated SVG, not user input
+              tmpl.innerHTML = svg; // mermaid library output, safe to render
               wrapper.appendChild(tmpl.content);
               container.replaceWith(wrapper);
             } catch (err) { console.warn("Mermaid render failed:", err); }
@@ -367,6 +367,8 @@ export default function PostDetail({ slug }: { slug: string }) {
                         body: JSON.stringify({ password: unlockCode }),
                       });
                       if (res.ok) {
+                        const data = await res.json();
+                        if (data.content) setPost({ ...post, content: data.content });
                         setUnlocked(true);
                         setShowUnlock(false);
                       } else {
@@ -414,6 +416,8 @@ export default function PostDetail({ slug }: { slug: string }) {
                         body: JSON.stringify({ postId: post.id, code: unlockCode }),
                       });
                       if (res.ok) {
+                        const data = await res.json();
+                        if (data.content) setPost({ ...post, content: data.content });
                         setUnlocked(true);
                         setShowUnlock(false);
                       } else {

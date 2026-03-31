@@ -43,12 +43,17 @@ export default function Navbar() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [expandedMobile, setExpandedMobile] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [mounted, setMounted] = useState(false);
+  const [searchResults, setSearchResults] = useState<{ title: string; slug: string; category?: { name: string } }[]>([]);
   // Derive theme from config (single source of truth); fallback to DOM class before config loads
   const theme = config.theme_name
     || (typeof document !== "undefined"
       ? Array.from(document.documentElement.classList).find((c) => c.startsWith("theme-"))
       : null)
     || "theme-dark-indigo";
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- standard hydration guard pattern
+  useEffect(() => { setMounted(true); }, []);
   const dropdownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,11 +96,30 @@ export default function Navbar() {
   }, []);
 
   // Focus search input when command palette opens
+  /* eslint-disable react-hooks/set-state-in-effect -- clearing derived state when dialog closes */
   useEffect(() => {
     if (cmdOpen) {
       setTimeout(() => searchInputRef.current?.focus(), 50);
+    } else {
+      setSearchResults([]);
     }
   }, [cmdOpen]);
+
+  // Debounced instant search
+  useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetch(`/api/posts?search=${encodeURIComponent(searchQuery.trim())}&limit=5`)
+        .then((r) => r.json())
+        .then((data) => setSearchResults(data.posts || []))
+        .catch(() => setSearchResults([]));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const openDropdown = useCallback((slug: string) => {
     if (dropdownTimer.current) clearTimeout(dropdownTimer.current);
@@ -144,7 +168,7 @@ export default function Navbar() {
                 {siteLogo}
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-accent opacity-0 group-hover:opacity-100 blur-md transition-opacity duration-300 -z-10" />
               </div>
-              <span className="text-xl font-bold gradient-text hidden sm:block" suppressHydrationWarning>
+              <span className="text-lg sm:text-xl font-bold gradient-text" suppressHydrationWarning>
                 {siteName}
               </span>
             </Link>
@@ -274,10 +298,10 @@ export default function Navbar() {
                     body: JSON.stringify({ theme_name: next }),
                   }).catch(() => {});
                 }}
-                className="hidden sm:flex p-2 text-foreground/50 hover:text-foreground hover:bg-white/5 rounded-lg transition-all cursor-pointer"
+                className="flex p-2 text-foreground/50 hover:text-foreground hover:bg-white/5 rounded-lg transition-all cursor-pointer"
                 aria-label="切换主题"
               >
-                {theme === "theme-light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                {mounted ? (theme === "theme-light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />) : <Sun className="w-4 h-4" />}
               </button>
               {/* RSS */}
               <a
@@ -368,8 +392,10 @@ export default function Navbar() {
 
                   {/* Quick links */}
                   <div className="px-3 py-3 max-h-[40vh] overflow-y-auto">
+                    {searchResults.length === 0 && (
                     <div className="px-2 py-1.5 text-xs font-medium text-muted uppercase tracking-wider">快速导航</div>
-                    {categories.slice(0, 5).map((cat) => {
+                    )}
+                    {searchResults.length === 0 && categories.slice(0, 5).map((cat) => {
                       const IconComp = getCategoryIcon(cat);
                       const color = getCategoryColor(cat);
                       return (
@@ -389,6 +415,29 @@ export default function Navbar() {
                         </button>
                       );
                     })}
+
+                    {/* Instant search results */}
+                    {searchResults.length > 0 && (
+                      <>
+                        <div className="h-px bg-border/30 mx-2 my-2" />
+                        <div className="px-2 py-1.5 text-xs font-medium text-muted uppercase tracking-wider">文章</div>
+                        {searchResults.map((post) => (
+                          <button
+                            key={post.slug}
+                            onClick={() => { router.push(`/blog/${post.slug}`); setCmdOpen(false); setSearchQuery(""); }}
+                            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left hover:bg-white/5 transition-colors cursor-pointer group"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <FileText className="w-4 h-4 text-primary-light" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-foreground truncate">{post.title}</div>
+                              {post.category && <div className="text-xs text-muted">{post.category.name}</div>}
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
 
                     {searchQuery.trim() && (
                       <>
